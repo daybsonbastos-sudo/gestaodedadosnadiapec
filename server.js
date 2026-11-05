@@ -356,49 +356,294 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 2. GESTÃO DE UNIDADES (Não vinculada obrigatoriamente a confinamento)
+// DATABASE MAPPERS (SUPABASE SNAKE_CASE <-> JS CAMELCASE)
 // -------------------------------------------------------------
-app.get('/api/units', (req, res) => {
+function rowToUnit(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    name: r.name,
+    code: r.code,
+    type: r.type || 'Geral / Fazenda',
+    capacity: Number(r.capacity) || 0,
+    active: r.active !== undefined ? r.active : true,
+    createdAt: r.created_at || r.createdAt
+  };
+}
+
+function rowToEstoque(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    unitId: r.unit_id || r.unitId,
+    item: r.item,
+    tipo: r.tipo || 'Suprimento',
+    quantidade: Number(r.quantidade) || 0,
+    unidadeMedida: r.unidade_medida || r.unidadeMedida || 'Un',
+    minimo: Number(r.minimo) || 0,
+    maximo: Number(r.maximo) || 0,
+    updatedAt: r.updated_at || r.updatedAt || new Date().toISOString()
+  };
+}
+
+function estoqueToRow(e) {
+  return {
+    id: e.id,
+    unit_id: e.unitId,
+    item: e.item,
+    tipo: e.tipo || 'Suprimento',
+    quantidade: Number(e.quantidade) || 0,
+    unidade_medida: e.unidadeMedida || 'Un',
+    minimo: Number(e.minimo) || 0,
+    maximo: Number(e.maximo) || 0,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function rowToTransferencia(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    numero: r.numero,
+    dataCriacao: r.data_criacao || r.dataCriacao,
+    dataNecessidade: r.data_necessidade || r.dataNecessidade,
+    solicitanteUserId: r.solicitante_user_id || r.solicitanteUserId,
+    solicitanteNome: r.solicitante_nome || r.solicitanteNome,
+    solicitanteUnitId: r.solicitante_unit_id || r.solicitanteUnitId,
+    solicitanteUnitNome: r.solicitante_unit_nome || r.solicitanteUnitNome,
+    remetenteUnitId: r.remetente_unit_id || r.remetenteUnitId,
+    remetenteUnitNome: r.remetente_unit_nome || r.remetenteUnitNome,
+    material: r.material,
+    volumeSolicitado: Number(r.volume_solicitado !== undefined ? r.volume_solicitado : r.volumeSolicitado),
+    unidadeMedida: r.unidade_medida || r.unidadeMedida || 'Un',
+    status: r.status,
+    volumeAprovado: r.volume_aprovado !== null && r.volume_aprovado !== undefined ? Number(r.volume_aprovado) : (r.volumeAprovado !== null && r.volumeAprovado !== undefined ? Number(r.volumeAprovado) : null),
+    dataPrevisaoEnvio: r.data_previsao_envio || r.dataPrevisaoEnvio,
+    justificativaRejeicao: r.justificativa_rejeicao || r.justificativaRejeicao,
+    dadosEnvio: r.dados_envio || r.dadosEnvio,
+    dadosRecebimento: r.dados_recebimento || r.dadosRecebimento,
+    documentos: r.documentos || [],
+    createdAt: r.created_at || r.createdAt
+  };
+}
+
+function transferenciaToRow(t) {
+  return {
+    id: t.id,
+    numero: t.numero,
+    data_criacao: t.dataCriacao,
+    data_necessidade: t.dataNecessidade,
+    solicitante_user_id: t.solicitanteUserId,
+    solicitante_nome: t.solicitanteNome,
+    solicitante_unit_id: t.solicitanteUnitId,
+    solicitante_unit_nome: t.solicitanteUnitNome,
+    remetente_unit_id: t.remetenteUnitId,
+    remetente_unit_nome: t.remetenteUnitNome,
+    material: t.material,
+    volume_solicitado: Number(t.volumeSolicitado),
+    unidade_medida: t.unidadeMedida,
+    status: t.status,
+    volume_aprovado: t.volumeAprovado !== null && t.volumeAprovado !== undefined ? Number(t.volumeAprovado) : null,
+    data_previsao_envio: t.dataPrevisaoEnvio || null,
+    justificativa_rejeicao: t.justificativaRejeicao || null,
+    dados_envio: t.dadosEnvio || null,
+    dados_recebimento: t.dadosRecebimento || null,
+    documentos: t.documentos || [],
+    updated_at: new Date().toISOString()
+  };
+}
+
+function rowToEmbarque(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    dataEmbarque: r.data_embarque || r.dataEmbarque,
+    origemUnidadeId: r.origem_unidade_id || r.origemUnidadeId,
+    origemUnidadeNome: r.origem_unidade_nome || r.origemUnidadeNome,
+    destinoUnidadeId: r.destino_unidade_id || r.destinoUnidadeId,
+    destinoUnidadeNome: r.destino_unidade_nome || r.destinoUnidadeNome,
+    qtdCabecas: Number(r.qtd_cabecas !== undefined ? r.qtd_cabecas : r.qtdCabecas),
+    categoria: r.categoria,
+    tipoCarga: r.tipo_carga || r.tipoCarga || 'Gado',
+    observacoes: r.observacoes,
+    criadoPorUserId: r.criado_por_user_id || r.criadoPorUserId,
+    criadoPorNome: r.criado_por_nome || r.criadoPorNome,
+    criadoPorRole: r.criado_por_role || r.criadoPorRole,
+    status: r.status,
+    documentos: r.documentos || [],
+    createdAt: r.created_at || r.createdAt
+  };
+}
+
+function embarqueToRow(e) {
+  return {
+    id: e.id,
+    data_embarque: e.dataEmbarque,
+    origem_unidade_id: e.origemUnidadeId,
+    origem_unidade_nome: e.origemUnidadeNome,
+    destino_unidade_id: e.destinoUnidadeId,
+    destino_unidade_nome: e.destinoUnidadeNome,
+    qtd_cabecas: Number(e.qtdCabecas),
+    categoria: e.categoria,
+    tipo_carga: e.tipoCarga || 'Gado',
+    observacoes: e.observacoes,
+    criado_por_user_id: e.criadoPorUserId,
+    criado_por_nome: e.criadoPorNome,
+    criado_por_role: e.criadoPorRole,
+    status: e.status || 'PROGRAMADO',
+    documentos: e.documentos || [],
+    updated_at: new Date().toISOString()
+  };
+}
+
+function rowToBaia(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    lote: r.lote,
+    baia: r.baia,
+    raca: r.raca,
+    categoria: r.categoria,
+    qtdAnimais: Number(r.qtd_animais !== undefined ? r.qtd_animais : r.qtdAnimais) || 0,
+    dataEntrada: r.data_entrada || r.dataEntrada,
+    pesoEntrada: r.peso_entrada || r.pesoEntrada,
+    dieta: r.dieta,
+    dtAdap: r.dt_adap || r.dtAdap,
+    diasAdap: r.dias_adap || r.diasAdap,
+    dtTerm: r.dt_term || r.dtTerm,
+    diasTerm: r.dias_term || r.diasTerm,
+    diasConfin: r.dias_confin || r.diasConfin,
+    consumoMO: r.consumo_mo || r.consumoMO,
+    gpd: r.gpd,
+    pesoAbatePrev: r.peso_abate_prev || r.pesoAbatePrev,
+    pesoEstimadoHoje: r.peso_estimado_hoje || r.pesoEstimadoHoje,
+    dataEstimadaEmbarque: r.data_estimada_embarque || r.dataEstimadaEmbarque,
+    obs: r.obs
+  };
+}
+
+function baiaToRow(b) {
+  return {
+    id: b.id || (b.baia + '_' + b.lote),
+    lote: b.lote,
+    baia: b.baia,
+    raca: b.raca || 'NE',
+    categoria: b.categoria || 'Macho',
+    qtd_animais: Number(b.qtdAnimais) || 0,
+    data_entrada: b.dataEntrada || null,
+    peso_entrada: b.pesoEntrada ? Number(b.pesoEntrada) : null,
+    dieta: b.dieta || '',
+    dt_adap: b.dtAdap || null,
+    dias_adap: b.diasAdap ? Number(b.diasAdap) : 0,
+    dt_term: b.dtTerm || null,
+    dias_term: b.diasTerm ? Number(b.diasTerm) : 0,
+    dias_confin: b.diasConfin ? Number(b.diasConfin) : 0,
+    consumo_mo: b.consumoMO ? Number(b.consumoMO) : 0,
+    gpd: b.gpd ? Number(b.gpd) : 1.4,
+    peso_abate_prev: b.pesoAbatePrev ? Number(b.pesoAbatePrev) : null,
+    peso_estimado_hoje: b.pesoEstimadoHoje ? Number(b.pesoEstimadoHoje) : null,
+    data_estimada_embarque: b.dataEstimadaEmbarque || null,
+    obs: b.obs || '',
+    updated_at: new Date().toISOString()
+  };
+}
+
+// -------------------------------------------------------------
+// 2. GESTÃO DE UNIDADES (Supabase PostgreSQL + Fallback Local)
+// -------------------------------------------------------------
+app.get('/api/units', async (req, res) => {
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.from('units').select('*').order('name');
+      if (!error && data && data.length > 0) {
+        return res.json(data.map(rowToUnit));
+      }
+    } catch (e) {
+      console.warn('Erro ao ler units do Supabase:', e.message);
+    }
+  }
   const db = getDb();
   res.json(db.units || []);
 });
 
-app.post('/api/units', (req, res) => {
+app.post('/api/units', async (req, res) => {
   const { name, code, type, capacity } = req.body;
   if (!name) return res.status(400).json({ error: 'Nome da unidade obrigatório.' });
 
-  const db = getDb();
   const newUnit = {
     id: 'unit_' + Date.now(),
     name,
     code: code || name.toUpperCase().replace(/\s+/g, '_').slice(0, 15),
-    type: type || 'Geral / Fazenda', // Tipos: 'Confinamento', 'Recria / Pasto', 'Cria', 'Armazém / Depósito', etc.
+    type: type || 'Geral / Fazenda',
     capacity: Number(capacity) || 0,
     active: true,
-    createdAt: new Date().toISOString()
+    created_at: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.from('units').insert([newUnit]).select().single();
+      if (!error && data) {
+        const saved = rowToUnit(data);
+        const db = getDb();
+        db.units.push(saved);
+        saveDb(db);
+        return res.json(saved);
+      }
+    } catch (e) {
+      console.warn('Erro insert unit Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
   db.units.push(newUnit);
   saveDb(db);
   res.json(newUnit);
 });
 
-app.put('/api/units/:id', (req, res) => {
+app.put('/api/units/:id', async (req, res) => {
   const { id } = req.params;
   const { name, code, type, capacity, active } = req.body;
+  const updates = {};
+  if (name !== undefined) updates.name = name;
+  if (code !== undefined) updates.code = code;
+  if (type !== undefined) updates.type = type;
+  if (capacity !== undefined) updates.capacity = Number(capacity);
+  if (active !== undefined) updates.active = active;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.from('units').update(updates).eq('id', id).select().single();
+      if (!error && data) {
+        const updated = rowToUnit(data);
+        const db = getDb();
+        const idx = db.units.findIndex(u => u.id === id);
+        if (idx !== -1) db.units[idx] = updated;
+        saveDb(db);
+        return res.json(updated);
+      }
+    } catch (e) {
+      console.warn('Erro update unit Supabase:', e.message);
+    }
+  }
+
   const db = getDb();
   const unit = db.units.find(u => u.id === id);
   if (!unit) return res.status(404).json({ error: 'Unidade não encontrada' });
-  if (name !== undefined) unit.name = name;
-  if (code !== undefined) unit.code = code;
-  if (type !== undefined) unit.type = type;
-  if (capacity !== undefined) unit.capacity = Number(capacity);
-  if (active !== undefined) unit.active = active;
+  Object.assign(unit, updates);
   saveDb(db);
   res.json(unit);
 });
 
-app.delete('/api/units/:id', (req, res) => {
+app.delete('/api/units/:id', async (req, res) => {
   const { id } = req.params;
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      await supabaseAdmin.from('units').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Erro delete unit Supabase:', e.message);
+    }
+  }
   const db = getDb();
   db.units = db.units.filter(u => u.id !== id);
   saveDb(db);
@@ -406,29 +651,41 @@ app.delete('/api/units/:id', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 3. PROGRAMAÇÃO DE EMBARQUES & AGENDAMENTOS
+// 3. PROGRAMAÇÃO DE EMBARQUES & AGENDAMENTOS (Supabase)
 // -------------------------------------------------------------
-// Listar embarques programados (com filtro opcional por unidade ou usuário)
-app.get('/api/embarques', (req, res) => {
+app.get('/api/embarques', async (req, res) => {
   const { unitId, status } = req.query;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      let q = supabaseAdmin.from('programacao_embarques').select('*').order('data_embarque');
+      if (status) q = q.eq('status', status);
+      const { data, error } = await q;
+      if (!error && data) {
+        let list = data.map(rowToEmbarque);
+        if (unitId) {
+          list = list.filter(e => e.origemUnidadeId === unitId || e.destinoUnidadeId === unitId);
+        }
+        return res.json(list);
+      }
+    } catch (e) {
+      console.warn('Erro ao ler embarques do Supabase:', e.message);
+    }
+  }
+
   const db = getDb();
   let embarques = db.programacaoEmbarques || [];
-
   if (unitId) {
     embarques = embarques.filter(e => e.origemUnidadeId === unitId || e.destinoUnidadeId === unitId);
   }
   if (status) {
     embarques = embarques.filter(e => e.status === status);
   }
-
-  // Ordenar por data de embarque
   embarques.sort((a, b) => new Date(a.dataEmbarque) - new Date(b.dataEmbarque));
   res.json(embarques);
 });
 
-// Criar novo agendamento de embarque
-// Permitido: Titular/Supervisor da unidade remetente, Gestor ou Admin
-app.post('/api/embarques', (req, res) => {
+app.post('/api/embarques', async (req, res) => {
   const {
     dataEmbarque,
     origemUnidadeId,
@@ -447,7 +704,6 @@ app.post('/api/embarques', (req, res) => {
     return res.status(400).json({ error: 'Preencha a data do embarque, unidades de origem e destino e quantidade de cabeças.' });
   }
 
-  // Regra de autorização: Apenas supervisor da remetente, gestor ou admin podem programar
   const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
   const isSupervisorRemetente = usuarioRole === 'supervisor' && usuarioUnitId === origemUnidadeId;
 
@@ -455,20 +711,38 @@ app.post('/api/embarques', (req, res) => {
     return res.status(403).json({ error: 'Apenas o titular/supervisor da unidade remetente ou gestores podem programar embarques.' });
   }
 
-  const db = getDb();
-  const origem = db.units.find(u => u.id === origemUnidadeId);
-  const destino = db.units.find(u => u.id === destinoUnidadeId);
+  // Obter nomes das unidades
+  let origemNome = 'Origem';
+  let destinoNome = 'Destino';
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data: uList } = await supabaseAdmin.from('units').select('id, name');
+      if (uList) {
+        const uO = uList.find(u => u.id === origemUnidadeId);
+        const uD = uList.find(u => u.id === destinoUnidadeId);
+        if (uO) origemNome = uO.name;
+        if (uD) destinoNome = uD.name;
+      }
+    } catch (e) {}
+  } else {
+    const db = getDb();
+    const uO = db.units.find(u => u.id === origemUnidadeId);
+    const uD = db.units.find(u => u.id === destinoUnidadeId);
+    if (uO) origemNome = uO.name;
+    if (uD) destinoNome = uD.name;
+  }
 
   const novoEmbarque = {
     id: 'emb_' + Date.now(),
     dataEmbarque,
     origemUnidadeId,
-    origemUnidadeNome: origem ? origem.name : 'Origem',
+    origemUnidadeNome: origemNome,
     destinoUnidadeId,
-    destinoUnidadeNome: destino ? destino.name : 'Destino',
+    destinoUnidadeNome: destinoNome,
     qtdCabecas: Number(qtdCabecas) || 0,
     categoria: categoria || 'Geral',
-    tipoCarga: tipoCarga || 'Gado', // 'Gado' ou 'Suprimento'
+    tipoCarga: tipoCarga || 'Gado',
     observacoes: observacoes || '',
     criadoPorUserId: usuarioId,
     criadoPorNome: usuarioNome,
@@ -478,14 +752,29 @@ app.post('/api/embarques', (req, res) => {
     createdAt: new Date().toISOString()
   };
 
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const row = embarqueToRow(novoEmbarque);
+      const { data, error } = await supabaseAdmin.from('programacao_embarques').insert([row]).select().single();
+      if (!error && data) {
+        const saved = rowToEmbarque(data);
+        const db = getDb();
+        db.programacaoEmbarques.push(saved);
+        saveDb(db);
+        return res.json(saved);
+      }
+    } catch (e) {
+      console.warn('Erro ao inserir embarque no Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
   db.programacaoEmbarques.push(novoEmbarque);
   saveDb(db);
   res.json(novoEmbarque);
 });
 
-// Editar agendamento de embarque
-// Regra: Apenas o usuário que programou o embarque ou um gestor/admin podem editá-lo
-app.put('/api/embarques/:id', (req, res) => {
+app.put('/api/embarques/:id', async (req, res) => {
   const { id } = req.params;
   const {
     dataEmbarque,
@@ -500,49 +789,71 @@ app.put('/api/embarques/:id', (req, res) => {
     usuarioRole
   } = req.body;
 
-  const db = getDb();
-  const emb = db.programacaoEmbarques.find(e => e.id === id);
-  if (!emb) return res.status(404).json({ error: 'Agendamento de embarque não encontrado.' });
+  let embAtual = null;
 
-  const isCriador = emb.criadoPorUserId === usuarioId;
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data } = await supabaseAdmin.from('programacao_embarques').select('*').eq('id', id).single();
+      if (data) embAtual = rowToEmbarque(data);
+    } catch (e) {}
+  }
+
+  if (!embAtual) {
+    const db = getDb();
+    embAtual = db.programacaoEmbarques.find(e => e.id === id);
+  }
+
+  if (!embAtual) return res.status(404).json({ error: 'Agendamento de embarque não encontrado.' });
+
+  const isCriador = embAtual.criadoPorUserId === usuarioId;
   const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
 
   if (!isCriador && !isGestorOuAdmin) {
     return res.status(403).json({ error: 'Apenas quem programou o embarque ou um Gestor/Admin podem editá-lo.' });
   }
 
+  const updates = { updated_at: new Date().toISOString() };
+  if (dataEmbarque !== undefined) updates.data_embarque = dataEmbarque;
+  if (origemUnidadeId !== undefined) updates.origem_unidade_id = origemUnidadeId;
+  if (destinoUnidadeId !== undefined) updates.destino_unidade_id = destinoUnidadeId;
+  if (qtdCabecas !== undefined) updates.qtd_cabecas = Number(qtdCabecas);
+  if (categoria !== undefined) updates.categoria = categoria;
+  if (tipoCarga !== undefined) updates.tipo_carga = tipoCarga;
+  if (observacoes !== undefined) updates.observacoes = observacoes;
+  if (status !== undefined) updates.status = status;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.from('programacao_embarques').update(updates).eq('id', id).select().single();
+      if (!error && data) {
+        const updated = rowToEmbarque(data);
+        const db = getDb();
+        const idx = db.programacaoEmbarques.findIndex(e => e.id === id);
+        if (idx !== -1) db.programacaoEmbarques[idx] = updated;
+        saveDb(db);
+        return res.json(updated);
+      }
+    } catch (e) {
+      console.warn('Erro update embarque Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
+  const emb = db.programacaoEmbarques.find(e => e.id === id);
   if (dataEmbarque !== undefined) emb.dataEmbarque = dataEmbarque;
-  if (origemUnidadeId !== undefined) {
-    emb.origemUnidadeId = origemUnidadeId;
-    const u = db.units.find(un => un.id === origemUnidadeId);
-    if (u) emb.origemUnidadeNome = u.name;
-  }
-  if (destinoUnidadeId !== undefined) {
-    emb.destinoUnidadeId = destinoUnidadeId;
-    const u = db.units.find(un => un.id === destinoUnidadeId);
-    if (u) emb.destinoUnidadeNome = u.name;
-  }
   if (qtdCabecas !== undefined) emb.qtdCabecas = Number(qtdCabecas);
   if (categoria !== undefined) emb.categoria = categoria;
   if (tipoCarga !== undefined) emb.tipoCarga = tipoCarga;
   if (observacoes !== undefined) emb.observacoes = observacoes;
-  if (status !== undefined) emb.status = status; // PROGRAMADO, ADIADO, CANCELADO, CONCLUIDO
-
+  if (status !== undefined) emb.status = status;
   emb.updatedAt = new Date().toISOString();
   saveDb(db);
   res.json(emb);
 });
 
-// Anexar Documentos (NF e GTA) na Programação de Embarque
-// Regra: Todos os envolvidos (remetente, destinatário, gestor, supervisor e observador) podem anexar
-app.post('/api/embarques/:id/documentos', upload.single('documento'), (req, res) => {
+app.post('/api/embarques/:id/documentos', upload.single('documento'), async (req, res) => {
   const { id } = req.params;
-  const { tipoDoc, usuarioNome } = req.body; // 'NF', 'GTA', 'Outro'
-
-  const db = getDb();
-  const emb = db.programacaoEmbarques.find(e => e.id === id);
-  if (!emb) return res.status(404).json({ error: 'Embarque não encontrado.' });
-
+  const { tipoDoc, usuarioNome } = req.body;
   const nomeArquivo = req.file ? req.file.originalname : (req.body.nomeArquivo || 'Documento_' + Date.now());
 
   const novoDoc = {
@@ -554,47 +865,249 @@ app.post('/api/embarques/:id/documentos', upload.single('documento'), (req, res)
     dataUpload: new Date().toISOString().split('T')[0]
   };
 
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data: cur } = await supabaseAdmin.from('programacao_embarques').select('documentos').eq('id', id).single();
+      if (cur) {
+        const docList = Array.isArray(cur.documentos) ? cur.documentos : [];
+        docList.push(novoDoc);
+        const { data: updated } = await supabaseAdmin.from('programacao_embarques').update({
+          documentos: docList,
+          updated_at: new Date().toISOString()
+        }).eq('id', id).select().single();
+        return res.json({ success: true, documento: novoDoc, embarque: rowToEmbarque(updated) });
+      }
+    } catch (e) {
+      console.warn('Erro anexo doc embarque Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
+  const emb = db.programacaoEmbarques.find(e => e.id === id);
+  if (!emb) return res.status(404).json({ error: 'Embarque não encontrado.' });
   if (!emb.documentos) emb.documentos = [];
   emb.documentos.push(novoDoc);
-
   saveDb(db);
   res.json({ success: true, documento: novoDoc, embarque: emb });
 });
 
 // -------------------------------------------------------------
-// 4. ESTOQUES DE GADO & SUPRIMENTOS (Admin cria; Titular movimenta)
+// 4. ESTOQUES DE GADO & SUPRIMENTOS (Supabase PostgreSQL)
 // -------------------------------------------------------------
-app.get('/api/estoques', (req, res) => {
+app.get('/api/estoques', async (req, res) => {
   const { unitId } = req.query;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      let q = supabaseAdmin.from('estoques').select('*').order('item');
+      if (unitId) q = q.eq('unit_id', unitId);
+      const { data, error } = await q;
+      if (!error && data) {
+        return res.json(data.map(rowToEstoque));
+      }
+    } catch (e) {
+      console.warn('Erro ao ler estoques do Supabase:', e.message);
+    }
+  }
+
   const db = getDb();
   let estoques = db.estoques || [];
-  if (unitId) {
-    estoques = estoques.filter(e => e.unitId === unitId);
-  }
+  if (unitId) estoques = estoques.filter(e => e.unitId === unitId);
   res.json(estoques);
 });
 
+app.post('/api/estoques', async (req, res) => {
+  const { unitId, item, tipo, quantidade, unidadeMedida, minimo, maximo, usuarioRole } = req.body;
+  if (usuarioRole !== 'admin') {
+    return res.status(403).json({ error: 'Apenas o Administrador pode cadastrar novos estoques para as unidades.' });
+  }
+
+  const novoEstoque = {
+    id: 'est_' + Date.now(),
+    unitId,
+    item,
+    tipo: tipo || 'Suprimento',
+    quantidade: Number(quantidade) || 0,
+    unidadeMedida: unidadeMedida || 'Un',
+    minimo: Number(minimo) || 0,
+    maximo: Number(maximo) || 0,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const row = estoqueToRow(novoEstoque);
+      const { data, error } = await supabaseAdmin.from('estoques').insert([row]).select().single();
+      if (!error && data) {
+        const saved = rowToEstoque(data);
+        const db = getDb();
+        db.estoques.push(saved);
+        saveDb(db);
+        return res.json(saved);
+      }
+    } catch (e) {
+      console.warn('Erro ao inserir estoque no Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
+  db.estoques.push(novoEstoque);
+  saveDb(db);
+  res.json(novoEstoque);
+});
+
+app.put('/api/estoques/:id', async (req, res) => {
+  const { id } = req.params;
+  const { unitId, item, tipo, quantidade, unidadeMedida, minimo, maximo, usuarioRole } = req.body;
+  if (usuarioRole !== 'admin') {
+    return res.status(403).json({ error: 'Apenas o Administrador pode editar as configurações de estoque.' });
+  }
+
+  const updates = { updated_at: new Date().toISOString() };
+  if (unitId !== undefined) updates.unit_id = unitId;
+  if (item !== undefined) updates.item = item;
+  if (tipo !== undefined) updates.tipo = tipo;
+  if (quantidade !== undefined) updates.quantidade = Number(quantidade);
+  if (unidadeMedida !== undefined) updates.unidade_medida = unidadeMedida;
+  if (minimo !== undefined) updates.minimo = Number(minimo);
+  if (maximo !== undefined) updates.maximo = Number(maximo);
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.from('estoques').update(updates).eq('id', id).select().single();
+      if (!error && data) {
+        const updated = rowToEstoque(data);
+        const db = getDb();
+        const idx = db.estoques.findIndex(e => e.id === id);
+        if (idx !== -1) db.estoques[idx] = updated;
+        saveDb(db);
+        return res.json(updated);
+      }
+    } catch (e) {
+      console.warn('Erro update estoque Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
+  const est = db.estoques.find(e => e.id === id);
+  if (!est) return res.status(404).json({ error: 'Estoque não encontrado.' });
+  if (unitId !== undefined) est.unitId = unitId;
+  if (item !== undefined) est.item = item;
+  if (tipo !== undefined) est.tipo = tipo;
+  if (quantidade !== undefined) est.quantidade = Number(quantidade);
+  if (unidadeMedida !== undefined) est.unidadeMedida = unidadeMedida;
+  if (minimo !== undefined) est.minimo = Number(minimo);
+  if (maximo !== undefined) est.maximo = Number(maximo);
+  est.updatedAt = new Date().toISOString();
+  saveDb(db);
+  res.json(est);
+});
+
+app.delete('/api/estoques/:id', async (req, res) => {
+  const { id } = req.params;
+  const { usuarioRole } = req.query;
+  if (usuarioRole !== 'admin') {
+    return res.status(403).json({ error: 'Apenas o Administrador pode remover um cadastro de estoque.' });
+  }
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      await supabaseAdmin.from('estoques').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Erro delete estoque Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
+  db.estoques = db.estoques.filter(e => e.id !== id);
+  saveDb(db);
+  res.json({ success: true });
+});
+
+app.post('/api/estoques/:id/movimentar', async (req, res) => {
+  const { id } = req.params;
+  const { tipoMovimento, quantidade, motivo, usuarioUnitId, usuarioRole, usuarioNome } = req.body;
+  const qtd = Number(quantidade) || 0;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data: estRow } = await supabaseAdmin.from('estoques').select('*').eq('id', id).single();
+      if (estRow) {
+        const est = rowToEstoque(estRow);
+        const isTitular = usuarioRole === 'supervisor' && usuarioUnitId === est.unitId;
+        const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
+        if (!isTitular && !isGestorOuAdmin) {
+          return res.status(403).json({ error: 'Somente o titular responsável pela unidade pode movimentar seus estoques.' });
+        }
+        if (tipoMovimento === 'SAIDA' && est.quantidade < qtd) {
+          return res.status(400).json({ error: 'Saldo insuficiente no estoque.' });
+        }
+        const novaQtd = tipoMovimento === 'ENTRADA' ? (est.quantidade + qtd) : (est.quantidade - qtd);
+        const { data: updatedRow } = await supabaseAdmin.from('estoques').update({
+          quantidade: novaQtd,
+          updated_at: new Date().toISOString()
+        }).eq('id', id).select().single();
+
+        return res.json({ success: true, estoque: rowToEstoque(updatedRow) });
+      }
+    } catch (e) {
+      console.warn('Erro movimentar estoque Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
+  const est = db.estoques.find(e => e.id === id);
+  if (!est) return res.status(404).json({ error: 'Estoque não encontrado.' });
+  const isTitular = usuarioRole === 'supervisor' && usuarioUnitId === est.unitId;
+  const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
+  if (!isTitular && !isGestorOuAdmin) {
+    return res.status(403).json({ error: 'Somente o titular responsável pela unidade pode movimentar seus estoques.' });
+  }
+  if (tipoMovimento === 'SAIDA' && est.quantidade < qtd) {
+    return res.status(400).json({ error: 'Saldo insuficiente no estoque.' });
+  }
+  if (tipoMovimento === 'ENTRADA') est.quantidade += qtd;
+  else est.quantidade -= qtd;
+  est.updatedAt = new Date().toISOString();
+  saveDb(db);
+  res.json({ success: true, estoque: est });
+});
+
 // -------------------------------------------------------------
-// 5. SOLICITAÇÃO & TRANSFERÊNCIA DE INSUMOS
+// 5. SOLICITAÇÃO & TRANSFERÊNCIA DE INSUMOS (Supabase PostgreSQL)
 // -------------------------------------------------------------
-// Listar transferências de insumos (com filtros opcionais)
-app.get('/api/transferencias-insumos', (req, res) => {
+app.get('/api/transferencias-insumos', async (req, res) => {
   const { unitId } = req.query;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('transferencias_insumos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        let list = data.map(rowToTransferencia);
+        if (unitId) {
+          list = list.filter(t => t.solicitanteUnitId === unitId || t.remetenteUnitId === unitId);
+        }
+        return res.json(list);
+      }
+    } catch (e) {
+      console.warn('Erro ao ler transferencias_insumos do Supabase:', e.message);
+    }
+  }
+
   const db = getDb();
   let list = db.transferenciasInsumos || [];
-
   if (unitId) {
     list = list.filter(t => t.solicitanteUnitId === unitId || t.remetenteUnitId === unitId);
   }
-
-  // Ordenar por data mais recente de criação
   list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   res.json(list);
 });
 
-// Criar nova solicitação de insumo
-// Permitido: Titular da unidade solicitante (supervisor), Gestor ou Admin
-app.post('/api/transferencias-insumos', (req, res) => {
+app.post('/api/transferencias-insumos', async (req, res) => {
   const {
     solicitanteUnitId,
     remetenteUnitId,
@@ -616,7 +1129,6 @@ app.post('/api/transferencias-insumos', (req, res) => {
     return res.status(400).json({ error: 'A unidade solicitante deve ser diferente da unidade remetente.' });
   }
 
-  // Validação de acesso: apenas titular da solicitante, gestor ou admin
   const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
   const isTitularSolicitante = usuarioRole === 'supervisor' && usuarioUnitId === solicitanteUnitId;
 
@@ -624,11 +1136,32 @@ app.post('/api/transferencias-insumos', (req, res) => {
     return res.status(403).json({ error: 'Apenas o titular da unidade solicitante ou o gestor podem solicitar transferência de insumos.' });
   }
 
-  const db = getDb();
-  const solicitante = db.units.find(u => u.id === solicitanteUnitId);
-  const remetente = db.units.find(u => u.id === remetenteUnitId);
+  let solicitanteNome = 'Solicitante';
+  let remetenteNome = 'Remetente';
+  let totalCount = 0;
 
-  const numeroSequencial = 1000 + (db.transferenciasInsumos.length + 1);
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data: uList } = await supabaseAdmin.from('units').select('id, name');
+      if (uList) {
+        const uS = uList.find(u => u.id === solicitanteUnitId);
+        const uR = uList.find(u => u.id === remetenteUnitId);
+        if (uS) solicitanteNome = uS.name;
+        if (uR) remetenteNome = uR.name;
+      }
+      const { count } = await supabaseAdmin.from('transferencias_insumos').select('*', { count: 'exact', head: true });
+      totalCount = count || 0;
+    } catch (e) {}
+  } else {
+    const db = getDb();
+    const uS = db.units.find(u => u.id === solicitanteUnitId);
+    const uR = db.units.find(u => u.id === remetenteUnitId);
+    if (uS) solicitanteNome = uS.name;
+    if (uR) remetenteNome = uR.name;
+    totalCount = db.transferenciasInsumos.length;
+  }
+
+  const numeroSequencial = 1000 + (totalCount + 1);
   const numeroSolicitacao = 'SOL-' + numeroSequencial;
 
   const novaSolicitacao = {
@@ -639,32 +1172,49 @@ app.post('/api/transferencias-insumos', (req, res) => {
     solicitanteUserId: usuarioId,
     solicitanteNome: usuarioNome,
     solicitanteUnitId,
-    solicitanteUnitNome: solicitante ? solicitante.name : 'Solicitante',
+    solicitanteUnitNome: solicitanteNome,
     remetenteUnitId,
-    remetenteUnitNome: remetente ? remetente.name : 'Remetente',
+    remetenteUnitNome: remetenteNome,
     material,
     volumeSolicitado: Number(volumeSolicitado),
     unidadeMedida: unidadeMedida || 'Un',
-    status: 'PENDENTE', // PENDENTE, APROVADA, REJEITADA, ENVIADA, RECEBIDA
+    status: 'PENDENTE',
     volumeAprovado: null,
     dataPrevisaoEnvio: null,
     justificativaRejeicao: null,
     dadosEnvio: null,
+    dadosRecebimento: null,
     documentos: [],
     createdAt: new Date().toISOString()
   };
 
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const row = transferenciaToRow(novaSolicitacao);
+      const { data, error } = await supabaseAdmin.from('transferencias_insumos').insert([row]).select().single();
+      if (!error && data) {
+        const saved = rowToTransferencia(data);
+        const db = getDb();
+        db.transferenciasInsumos.push(saved);
+        saveDb(db);
+        return res.json(saved);
+      }
+    } catch (e) {
+      console.warn('Erro ao inserir transferencia no Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
   db.transferenciasInsumos.push(novaSolicitacao);
   saveDb(db);
   res.json(novaSolicitacao);
 });
 
-// Responder à solicitação: Aceitar ou Rejeitar
-// Permitido: Titular da unidade remetente, Gestor ou Admin
-app.post('/api/transferencias-insumos/:id/responder', (req, res) => {
+// Responder à solicitação (Aceitar -> TRANSFERÊNCIA CONFIRMADA, ou Rejeitar)
+app.post('/api/transferencias-insumos/:id/responder', async (req, res) => {
   const { id } = req.params;
   const {
-    decisao, // 'ACEITAR' ou 'REJEITAR'
+    decisao,
     volumeAprovado,
     dataPrevisaoEnvio,
     justificativaRejeicao,
@@ -674,11 +1224,22 @@ app.post('/api/transferencias-insumos/:id/responder', (req, res) => {
     usuarioUnitId
   } = req.body;
 
-  const db = getDb();
-  const sol = db.transferenciasInsumos.find(t => t.id === id);
+  let sol = null;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data } = await supabaseAdmin.from('transferencias_insumos').select('*').eq('id', id).single();
+      if (data) sol = rowToTransferencia(data);
+    } catch (e) {}
+  }
+
+  if (!sol) {
+    const db = getDb();
+    sol = db.transferenciasInsumos.find(t => t.id === id);
+  }
+
   if (!sol) return res.status(404).json({ error: 'Solicitação não encontrada.' });
 
-  // Validação: apenas titular da remetente ou gestor/admin
   const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
   const isTitularRemetente = usuarioRole === 'supervisor' && usuarioUnitId === sol.remetenteUnitId;
 
@@ -686,34 +1247,51 @@ app.post('/api/transferencias-insumos/:id/responder', (req, res) => {
     return res.status(403).json({ error: 'Apenas o titular da unidade remetente ou gestores podem responder a esta solicitação.' });
   }
 
+  const updates = { updated_at: new Date().toISOString() };
+
   if (decisao === 'REJEITAR') {
     if (!justificativaRejeicao) {
       return res.status(400).json({ error: 'É obrigatório informar uma justificativa ao rejeitar a solicitação.' });
     }
+    updates.status = 'REJEITADA';
+    updates.justificativa_rejeicao = justificativaRejeicao;
     sol.status = 'REJEITADA';
     sol.justificativaRejeicao = justificativaRejeicao;
-    sol.respondidoPor = usuarioNome;
-    sol.dataResposta = new Date().toISOString();
   } else if (decisao === 'ACEITAR') {
     if (!dataPrevisaoEnvio || !volumeAprovado) {
       return res.status(400).json({ error: 'Ao aceitar, confirme a data prevista para envio e o volume aprovado.' });
     }
+    updates.status = 'CONFIRMADA';
+    updates.volume_aprovado = Number(volumeAprovado);
+    updates.data_previsao_envio = dataPrevisaoEnvio;
     sol.status = 'CONFIRMADA';
     sol.volumeAprovado = Number(volumeAprovado);
     sol.dataPrevisaoEnvio = dataPrevisaoEnvio;
-    sol.respondidoPor = usuarioNome;
-    sol.dataResposta = new Date().toISOString();
   } else {
     return res.status(400).json({ error: 'Decisão inválida. Escolha ACEITAR ou REJEITAR.' });
   }
 
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.from('transferencias_insumos').update(updates).eq('id', id).select().single();
+      if (!error && data) {
+        sol = rowToTransferencia(data);
+      }
+    } catch (e) {
+      console.warn('Erro update responder transferencia Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
+  const idx = db.transferenciasInsumos.findIndex(t => t.id === id);
+  if (idx !== -1) db.transferenciasInsumos[idx] = sol;
   saveDb(db);
+
   res.json({ success: true, solicitacao: sol });
 });
 
-// Confirmar Envio do Material (Unidade Remetente)
-// Subtrai automaticamente do estoque da remetente!
-app.post('/api/transferencias-insumos/:id/enviar', (req, res) => {
+// Confirmar Envio do Material (Unidade Remetente): Baixa automática no estoque!
+app.post('/api/transferencias-insumos/:id/enviar', async (req, res) => {
   const { id } = req.params;
   const { motorista, numeroNF, usuarioUnitId, usuarioRole, usuarioNome } = req.body;
 
@@ -721,8 +1299,20 @@ app.post('/api/transferencias-insumos/:id/enviar', (req, res) => {
     return res.status(400).json({ error: 'Informe o nome do motorista transportador.' });
   }
 
-  const db = getDb();
-  const sol = db.transferenciasInsumos.find(t => t.id === id);
+  let sol = null;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data } = await supabaseAdmin.from('transferencias_insumos').select('*').eq('id', id).single();
+      if (data) sol = rowToTransferencia(data);
+    } catch (e) {}
+  }
+
+  if (!sol) {
+    const db = getDb();
+    sol = db.transferenciasInsumos.find(t => t.id === id);
+  }
+
   if (!sol) return res.status(404).json({ error: 'Solicitação não encontrada.' });
 
   const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
@@ -734,42 +1324,95 @@ app.post('/api/transferencias-insumos/:id/enviar', (req, res) => {
 
   const volumeEnvio = sol.volumeAprovado || sol.volumeSolicitado;
 
-  // Localizar estoque do remetente correspondente ao material
-  const estRemetente = db.estoques.find(e => 
+  // Localizar e subtrair estoque no Supabase
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data: estRows } = await supabaseAdmin
+        .from('estoques')
+        .select('*')
+        .eq('unit_id', sol.remetenteUnitId);
+
+      const estRem = (estRows || []).find(e => e.item.trim().toLowerCase() === sol.material.trim().toLowerCase());
+      if (estRem) {
+        if (Number(estRem.quantidade) < volumeEnvio) {
+          return res.status(400).json({
+            error: `Saldo insuficiente na unidade remetente. Saldo disponível: ${estRem.quantidade} ${estRem.unidade_medida}, Volume do envio: ${volumeEnvio}`
+          });
+        }
+        await supabaseAdmin.from('estoques').update({
+          quantidade: Number(estRem.quantidade) - volumeEnvio,
+          updated_at: new Date().toISOString()
+        }).eq('id', estRem.id);
+      }
+    } catch (e) {
+      console.warn('Erro ao baixar estoque no Supabase:', e.message);
+    }
+  }
+
+  // Baixa local db.json
+  const db = getDb();
+  const estLocal = db.estoques.find(e => 
     e.unitId === sol.remetenteUnitId && 
     e.item.trim().toLowerCase() === sol.material.trim().toLowerCase()
   );
-
-  if (estRemetente) {
-    if (estRemetente.quantidade < volumeEnvio) {
-      return res.status(400).json({ 
-        error: `Saldo insuficiente na unidade remetente. Saldo disponível: ${estRemetente.quantidade} ${estRemetente.unidadeMedida}, Volume do envio: ${volumeEnvio}` 
-      });
-    }
-    estRemetente.quantidade -= volumeEnvio;
-    estRemetente.updatedAt = new Date().toISOString();
+  if (estLocal) {
+    estLocal.quantidade -= volumeEnvio;
+    estLocal.updatedAt = new Date().toISOString();
   }
 
-  sol.status = 'ENVIADA';
-  sol.dadosEnvio = {
+  const dadosEnvio = {
     motorista,
     numeroNF: numeroNF || '',
     dataEnvio: new Date().toISOString().split('T')[0],
     enviadoPor: usuarioNome
   };
 
+  sol.status = 'ENVIADA';
+  sol.dadosEnvio = dadosEnvio;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data } = await supabaseAdmin.from('transferencias_insumos').update({
+        status: 'ENVIADA',
+        dados_envio: dadosEnvio,
+        updated_at: new Date().toISOString()
+      }).eq('id', id).select().single();
+      if (data) sol = rowToTransferencia(data);
+    } catch (e) {
+      console.warn('Erro update envio transferencia Supabase:', e.message);
+    }
+  }
+
+  const idx = db.transferenciasInsumos.findIndex(t => t.id === id);
+  if (idx !== -1) db.transferenciasInsumos[idx] = sol;
   saveDb(db);
-  res.json({ success: true, message: `Envio confirmado! Saldo de ${volumeEnvio} subtraído do estoque da unidade remetente.`, solicitacao: sol });
+
+  res.json({
+    success: true,
+    message: `Envio confirmado! Saldo de ${volumeEnvio} subtraído do estoque da unidade remetente.`,
+    solicitacao: sol
+  });
 });
 
-// Confirmar Recebimento do Material (Unidade Solicitante / Destinatária)
-// Soma automaticamente ao estoque do destinatário (e cria estoque caso não exista)!
-app.post('/api/transferencias-insumos/:id/receber', (req, res) => {
+// Confirmar Recebimento do Material (Unidade Destinatária): Soma automática e arquivamento!
+app.post('/api/transferencias-insumos/:id/receber', async (req, res) => {
   const { id } = req.params;
   const { usuarioUnitId, usuarioRole, usuarioNome } = req.body;
 
-  const db = getDb();
-  const sol = db.transferenciasInsumos.find(t => t.id === id);
+  let sol = null;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data } = await supabaseAdmin.from('transferencias_insumos').select('*').eq('id', id).single();
+      if (data) sol = rowToTransferencia(data);
+    } catch (e) {}
+  }
+
+  if (!sol) {
+    const db = getDb();
+    sol = db.transferenciasInsumos.find(t => t.id === id);
+  }
+
   if (!sol) return res.status(404).json({ error: 'Solicitação não encontrada.' });
 
   const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
@@ -781,15 +1424,47 @@ app.post('/api/transferencias-insumos/:id/receber', (req, res) => {
 
   const volumeRecebido = sol.volumeAprovado || sol.volumeSolicitado;
 
-  // Localizar estoque no destinatário
-  let estDestinatario = db.estoques.find(e => 
+  // Localizar ou criar estoque no destino no Supabase
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data: estRows } = await supabaseAdmin
+        .from('estoques')
+        .select('*')
+        .eq('unit_id', sol.solicitanteUnitId);
+
+      const estDest = (estRows || []).find(e => e.item.trim().toLowerCase() === sol.material.trim().toLowerCase());
+      if (estDest) {
+        await supabaseAdmin.from('estoques').update({
+          quantidade: Number(estDest.quantidade) + volumeRecebido,
+          updated_at: new Date().toISOString()
+        }).eq('id', estDest.id);
+      } else {
+        await supabaseAdmin.from('estoques').insert([{
+          id: 'est_' + Date.now(),
+          unit_id: sol.solicitanteUnitId,
+          item: sol.material,
+          tipo: 'Suprimento',
+          quantidade: volumeRecebido,
+          unidade_medida: sol.unidadeMedida,
+          minimo: 0,
+          maximo: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }]);
+      }
+    } catch (e) {
+      console.warn('Erro ao somar estoque no Supabase:', e.message);
+    }
+  }
+
+  // Localizar ou criar estoque local db.json
+  const db = getDb();
+  let estLocal = db.estoques.find(e => 
     e.unitId === sol.solicitanteUnitId && 
     e.item.trim().toLowerCase() === sol.material.trim().toLowerCase()
   );
-
-  // Se não houver estoque com o mesmo nome no destinatário, o sistema cria automaticamente!
-  if (!estDestinatario) {
-    estDestinatario = {
+  if (!estLocal) {
+    estLocal = {
       id: 'est_' + Date.now(),
       unitId: sol.solicitanteUnitId,
       item: sol.material,
@@ -800,19 +1475,37 @@ app.post('/api/transferencias-insumos/:id/receber', (req, res) => {
       maximo: 0,
       updatedAt: new Date().toISOString()
     };
-    db.estoques.push(estDestinatario);
+    db.estoques.push(estLocal);
   } else {
-    estDestinatario.quantidade += volumeRecebido;
-    estDestinatario.updatedAt = new Date().toISOString();
+    estLocal.quantidade += volumeRecebido;
+    estLocal.updatedAt = new Date().toISOString();
   }
 
-  sol.status = 'ARQUIVADA';
-  sol.dadosRecebimento = {
+  const dadosRecebimento = {
     dataRecebimento: new Date().toISOString().split('T')[0],
     recebidoPor: usuarioNome
   };
 
+  sol.status = 'ARQUIVADA';
+  sol.dadosRecebimento = dadosRecebimento;
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data } = await supabaseAdmin.from('transferencias_insumos').update({
+        status: 'ARQUIVADA',
+        dados_recebimento: dadosRecebimento,
+        updated_at: new Date().toISOString()
+      }).eq('id', id).select().single();
+      if (data) sol = rowToTransferencia(data);
+    } catch (e) {
+      console.warn('Erro update recebimento transferencia Supabase:', e.message);
+    }
+  }
+
+  const idx = db.transferenciasInsumos.findIndex(t => t.id === id);
+  if (idx !== -1) db.transferenciasInsumos[idx] = sol;
   saveDb(db);
+
   res.json({
     success: true,
     message: `Recebimento confirmado! Saldo de ${volumeRecebido} ${sol.unidadeMedida} incorporado ao estoque da sua unidade. Transferência arquivada com sucesso.`,
@@ -821,14 +1514,9 @@ app.post('/api/transferencias-insumos/:id/receber', (req, res) => {
 });
 
 // Anexar Documentos (NF / Comprovantes) na Transferência de Insumos
-app.post('/api/transferencias-insumos/:id/documentos', upload.single('documento'), (req, res) => {
+app.post('/api/transferencias-insumos/:id/documentos', upload.single('documento'), async (req, res) => {
   const { id } = req.params;
   const { tipoDoc, usuarioNome } = req.body;
-
-  const db = getDb();
-  const sol = db.transferenciasInsumos.find(t => t.id === id);
-  if (!sol) return res.status(404).json({ error: 'Solicitação não encontrada.' });
-
   const nomeArquivo = req.file ? req.file.originalname : (req.body.nomeArquivo || 'Doc_' + Date.now());
 
   const novoDoc = {
@@ -840,141 +1528,75 @@ app.post('/api/transferencias-insumos/:id/documentos', upload.single('documento'
     dataUpload: new Date().toISOString().split('T')[0]
   };
 
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data: cur } = await supabaseAdmin.from('transferencias_insumos').select('documentos').eq('id', id).single();
+      if (cur) {
+        const docList = Array.isArray(cur.documentos) ? cur.documentos : [];
+        docList.push(novoDoc);
+        const { data: updated } = await supabaseAdmin.from('transferencias_insumos').update({
+          documentos: docList,
+          updated_at: new Date().toISOString()
+        }).eq('id', id).select().single();
+        return res.json({ success: true, documento: novoDoc, solicitacao: rowToTransferencia(updated) });
+      }
+    } catch (e) {
+      console.warn('Erro anexo doc transferencia Supabase:', e.message);
+    }
+  }
+
+  const db = getDb();
+  const sol = db.transferenciasInsumos.find(t => t.id === id);
+  if (!sol) return res.status(404).json({ error: 'Solicitação não encontrada.' });
   if (!sol.documentos) sol.documentos = [];
   sol.documentos.push(novoDoc);
-
   saveDb(db);
   res.json({ success: true, documento: novoDoc, solicitacao: sol });
 });
-app.post('/api/estoques', (req, res) => {
-  const { unitId, item, tipo, quantidade, unidadeMedida, minimo, maximo, usuarioRole } = req.body;
-  if (usuarioRole !== 'admin') {
-    return res.status(403).json({ error: 'Apenas o Administrador pode cadastrar novos estoques para as unidades.' });
-  }
-
-  const db = getDb();
-  const novoEstoque = {
-    id: 'est_' + Date.now(),
-    unitId,
-    item,
-    tipo: tipo || 'Suprimento', // 'Gado' ou 'Suprimento'
-    quantidade: Number(quantidade) || 0,
-    unidadeMedida: unidadeMedida || 'Un',
-    minimo: Number(minimo) || 0,
-    maximo: Number(maximo) || 0,
-    updatedAt: new Date().toISOString()
-  };
-
-  db.estoques.push(novoEstoque);
-  saveDb(db);
-  res.json(novoEstoque);
-});
-
-// Editar estoque: Exclusivo do Admin (nome, unidade de medida, mínimo, máximo, tipo, etc.)
-app.put('/api/estoques/:id', (req, res) => {
-  const { id } = req.params;
-  const { unitId, item, tipo, quantidade, unidadeMedida, minimo, maximo, usuarioRole } = req.body;
-
-  if (usuarioRole !== 'admin') {
-    return res.status(403).json({ error: 'Apenas o Administrador pode editar as configurações de estoque.' });
-  }
-
-  const db = getDb();
-  const est = db.estoques.find(e => e.id === id);
-  if (!est) return res.status(404).json({ error: 'Estoque não encontrado.' });
-
-  if (unitId !== undefined) est.unitId = unitId;
-  if (item !== undefined) est.item = item;
-  if (tipo !== undefined) est.tipo = tipo;
-  if (quantidade !== undefined) est.quantidade = Number(quantidade);
-  if (unidadeMedida !== undefined) est.unidadeMedida = unidadeMedida;
-  if (minimo !== undefined) est.minimo = Number(minimo);
-  if (maximo !== undefined) est.maximo = Number(maximo);
-  est.updatedAt = new Date().toISOString();
-
-  saveDb(db);
-  res.json(est);
-});
-
-// Excluir estoque: Exclusivo do Admin
-app.delete('/api/estoques/:id', (req, res) => {
-  const { id } = req.params;
-  const { usuarioRole } = req.query;
-
-  if (usuarioRole !== 'admin') {
-    return res.status(403).json({ error: 'Apenas o Administrador pode remover um cadastro de estoque.' });
-  }
-
-  const db = getDb();
-  db.estoques = db.estoques.filter(e => e.id !== id);
-  saveDb(db);
-  res.json({ success: true });
-});
-
-// Movimentar estoque: Apenas titular da unidade ou Gestor/Admin
-app.post('/api/estoques/:id/movimentar', (req, res) => {
-  const { id } = req.params;
-  const { tipoMovimento, quantidade, motivo, usuarioUnitId, usuarioRole, usuarioNome } = req.body;
-
-  const db = getDb();
-  const est = db.estoques.find(e => e.id === id);
-  if (!est) return res.status(404).json({ error: 'Estoque não encontrado.' });
-
-  // Regra: Somente o titular da unidade (supervisor com unitId correspondente) ou gestor/admin pode movimentar
-  const isTitular = usuarioRole === 'supervisor' && usuarioUnitId === est.unitId;
-  const isGestorOuAdmin = usuarioRole === 'admin' || usuarioRole === 'gestor';
-
-  if (!isTitular && !isGestorOuAdmin) {
-    return res.status(403).json({ error: 'Somente o titular responsável pela unidade pode movimentar seus estoques.' });
-  }
-
-  const qtd = Number(quantidade) || 0;
-  if (tipoMovimento === 'SAIDA' && est.quantidade < qtd) {
-    return res.status(400).json({ error: 'Saldo insuficiente no estoque.' });
-  }
-
-  if (tipoMovimento === 'ENTRADA') {
-    est.quantidade += qtd;
-  } else {
-    est.quantidade -= qtd;
-  }
-  est.updatedAt = new Date().toISOString();
-
-  saveDb(db);
-  res.json({ success: true, estoque: est });
-});
 
 // -------------------------------------------------------------
-// 5. REBANHO & POSIÇÃO ATUAL
+// 6. REBANHO & POSIÇÃO ATUAL (Supabase PostgreSQL)
 // -------------------------------------------------------------
-app.get('/api/rebanho', (req, res) => {
-  const db = getDb();
-  const baiasComLotacao = db.baias.map(b => {
-    const lot = db.lotacao[b.baia] || db.lotacao[b.baia.replace(/^0+/, '')] || null;
-    return { ...b, lotacaoSpecs: lot };
-  });
+app.get('/api/rebanho', async (req, res) => {
+  let baias = [];
 
-  const totalAnimais = db.baias.reduce((acc, b) => acc + (b.qtdAnimais || 0), 0);
-  const curraisOcupados = db.baias.filter(b => (b.qtdAnimais || 0) > 0).length;
-  const prontosEmbarque = db.baias.filter(b => {
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.from('baias').select('*').order('baia');
+      if (!error && data && data.length > 0) {
+        baias = data.map(rowToBaia);
+      }
+    } catch (e) {
+      console.warn('Erro ao ler baias do Supabase:', e.message);
+    }
+  }
+
+  if (baias.length === 0) {
+    const db = getDb();
+    baias = db.baias || [];
+  }
+
+  const totalAnimais = baias.reduce((acc, b) => acc + (b.qtdAnimais || 0), 0);
+  const curraisOcupados = baias.filter(b => (b.qtdAnimais || 0) > 0).length;
+  const prontosEmbarque = baias.filter(b => {
     return (b.pesoAbatePrev && b.pesoEstimadoHoje && b.pesoEstimadoHoje >= b.pesoAbatePrev) ||
            (b.diasConfin && b.diasConfin >= 90 && b.qtdAnimais > 0);
   }).length;
 
   res.json({
-    baias: baiasComLotacao,
+    baias,
     resumo: {
       totalAnimais,
       curraisOcupados,
       prontosEmbarque,
-      totalLotes: db.baias.length,
-      lastUpdate: db.lastUpdate || '2026-10-11T17:00:00'
+      totalLotes: baias.length,
+      lastUpdate: new Date().toISOString()
     }
   });
 });
 
 // -------------------------------------------------------------
-// 6. IMPORTAÇÃO DE RELATÓRIOS (Excel / PDF)
+// 7. IMPORTAÇÃO DE RELATÓRIOS (Excel / PDF)
 // -------------------------------------------------------------
 app.post('/api/import/preview', upload.single('file'), async (req, res) => {
   try {
@@ -991,9 +1613,20 @@ app.post('/api/import/preview', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Formato inválido. Apenas .xlsx, .xls ou .pdf são aceitos.' });
     }
 
-    const db = getDb();
+    let baiasAtuais = [];
+    if (isSupabaseConfigured && supabaseAdmin) {
+      try {
+        const { data } = await supabaseAdmin.from('baias').select('*');
+        if (data) baiasAtuais = data.map(rowToBaia);
+      } catch (e) {}
+    }
+    if (baiasAtuais.length === 0) {
+      const db = getDb();
+      baiasAtuais = db.baias || [];
+    }
+
     const comparacao = lotes.map(novo => {
-      const atual = db.baias.find(b => b.baia === novo.baia || b.baia === novo.curralOriginal);
+      const atual = baiasAtuais.find(b => b.baia === novo.baia || b.baia === novo.curralOriginal);
       return {
         novo,
         atual: atual || null,
@@ -1014,11 +1647,21 @@ app.post('/api/import/preview', upload.single('file'), async (req, res) => {
   }
 });
 
-app.post('/api/import/confirm', (req, res) => {
+app.post('/api/import/confirm', async (req, res) => {
   try {
     const { lotes } = req.body;
     if (!lotes || !Array.isArray(lotes)) {
       return res.status(400).json({ error: 'Lista de lotes inválida.' });
+    }
+
+    // Persistir no Supabase
+    if (isSupabaseConfigured && supabaseAdmin) {
+      try {
+        const rows = lotes.map(l => baiaToRow(l));
+        await supabaseAdmin.from('baias').upsert(rows, { onConflict: 'baia' });
+      } catch (e) {
+        console.warn('Erro ao salvar baias no Supabase:', e.message);
+      }
     }
 
     const db = getDb();
@@ -1033,30 +1676,57 @@ app.post('/api/import/confirm', (req, res) => {
         });
       }
     }
-
     db.lastUpdate = new Date().toISOString();
     saveDb(db);
 
-    res.json({ success: true, count: lotes.length, message: `${lotes.length} lotes sincronizados com sucesso!` });
+    res.json({ success: true, count: lotes.length, message: `${lotes.length} lotes sincronizados e salvos com sucesso!` });
   } catch (err) {
     res.status(500).json({ error: 'Falha ao salvar dados: ' + err.message });
   }
 });
 
 // -------------------------------------------------------------
-// 7. DASHBOARD & MOVIMENTAÇÕES
+// 8. DASHBOARD & MOVIMENTAÇÕES (Supabase + Fallback)
 // -------------------------------------------------------------
-app.get('/api/dashboard/movimentacoes', (req, res) => {
+app.get('/api/dashboard/movimentacoes', async (req, res) => {
   const { dataInicio, dataFim, tipo, baia, categoria } = req.query;
-  const db = getDb();
 
-  let movs = db.movimentacoes || [];
+  let movs = [];
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      let q = supabaseAdmin.from('movimentacoes').select('*');
+      if (dataInicio) q = q.gte('data', dataInicio);
+      if (dataFim) q = q.lte('data', dataFim);
+      const { data, error } = await q;
+      if (!error && data && data.length > 0) {
+        movs = data.map(m => ({
+          id: m.id,
+          lote: m.lote,
+          baia: m.baia,
+          data: m.data,
+          tipo: m.tipo,
+          quantidade: m.quantidade,
+          categoria: m.categoria,
+          peso: m.peso,
+          precoArroba: m.preco_arroba,
+          valorTotal: m.valor_total,
+          origemDestino: m.origem_destino,
+          obs: m.obs
+        }));
+      }
+    } catch (e) {}
+  }
 
-  if (dataInicio) movs = movs.filter(m => m.data >= dataInicio);
-  if (dataFim) movs = movs.filter(m => m.data <= dataFim);
-  if (tipo) movs = movs.filter(m => m.tipo.toLowerCase().includes(tipo.toLowerCase()));
-  if (baia) movs = movs.filter(m => String(m.baia).toLowerCase().includes(baia.toLowerCase()));
-  if (categoria) movs = movs.filter(m => String(m.categoria).toLowerCase().includes(categoria.toLowerCase()));
+  if (movs.length === 0) {
+    const db = getDb();
+    movs = db.movimentacoes || [];
+    if (dataInicio) movs = movs.filter(m => m.data >= dataInicio);
+    if (dataFim) movs = movs.filter(m => m.data <= dataFim);
+  }
+
+  if (tipo) movs = movs.filter(m => (m.tipo || '').toLowerCase().includes(tipo.toLowerCase()));
+  if (baia) movs = movs.filter(m => String(m.baia || '').toLowerCase().includes(baia.toLowerCase()));
+  if (categoria) movs = movs.filter(m => String(m.categoria || '').toLowerCase().includes(categoria.toLowerCase()));
 
   const porTipo = {};
   const porMes = {};
