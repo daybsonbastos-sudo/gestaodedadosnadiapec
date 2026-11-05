@@ -1562,9 +1562,17 @@ app.get('/api/rebanho', async (req, res) => {
 
   if (isSupabaseConfigured && supabaseAdmin) {
     try {
-      const { data, error } = await supabaseAdmin.from('baias').select('*').order('baia');
+      const { data, error } = await supabaseAdmin.from('baias').select('*');
       if (!error && data && data.length > 0) {
         baias = data.map(rowToBaia);
+        baias.sort((a, b) => {
+          const numA = parseInt(a.baia, 10);
+          const numB = parseInt(b.baia, 10);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          if (!isNaN(numA)) return -1;
+          if (!isNaN(numB)) return 1;
+          return String(a.baia).localeCompare(String(b.baia), undefined, { numeric: true });
+        });
       }
     } catch (e) {
       console.warn('Erro ao ler baias do Supabase:', e.message);
