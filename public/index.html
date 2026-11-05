@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Dados de Confinamento</title>
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js & jsPDF -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              primary: '#22c55e',
+              dark: '#0a0d0c',
+              card: '#121715',
+              cardBorder: '#1c2420',
+              hover: '#18211d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #080b09;
+      color: #e5e7eb;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f1412;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1e2823;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #22c55e;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#070a08] text-gray-200">
+
+  <!-- TOPBAR -->
+  <header class="border-b border-[#18221c] bg-[#0c120f]/95 sticky top-0 z-50 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo e Título Atualizado: Gestão de Dados de Confinamento -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <i data-lucide="beef" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="font-bold text-sm tracking-wide text-white leading-tight">Gestão de Dados</div>
+          <div class="text-[10px] font-semibold text-emerald-500 uppercase tracking-widest">CONFINAMENTO</div>
+        </div>
+      </div>
+
+      <!-- Navegação Principal com Módulos Controlados por Permissão -->
+      <nav id="navMenu" class="hidden md:flex items-center gap-1 bg-[#101713] p-1 rounded-xl border border-[#1b2520]">
+        <button onclick="navigateTo('inicio')" id="nav-inicio" class="nav-btn flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-black shadow-sm">
+          <i data-lucide="home" class="w-4 h-4"></i> Início
+        </button>
+        <button onclick="navigateTo('rebanho')" id="nav-rebanho" class="nav-btn hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#18221c] transition-colors">
+          <i data-lucide="layout-grid" class="w-4 h-4"></i> Rebanho
+        </button>
+        <button onclick="navigateTo('embarque')" id="nav-embarque" class="nav-btn hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#18221c] transition-colors">
+          <i data-lucide="truck" class="w-4 h-4"></i> Programação de Embarque
+        </button>
+        <button onclick="navigateTo('transferencia-insumos')" id="nav-transferencia-insumos" class="nav-btn hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#18221c] transition-colors">
+          <i data-lucide="arrow-left-right" class="w-4 h-4"></i> Transferência de Insumos
+        </button>
+        <button onclick="navigateTo('estoque')" id="nav-estoque" class="nav-btn hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#18221c] transition-colors">
+          <i data-lucide="boxes" class="w-4 h-4"></i> Estoques
+        </button>
+        <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="nav-btn hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#18221c] transition-colors">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Dashboard
+        </button>
+        <button onclick="navigateTo('admin')" id="nav-admin" class="nav-btn hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#18221c] transition-colors">
+          <i data-lucide="settings" class="w-4 h-4"></i> Admin
+        </button>
+      </nav>
+
+      <!-- Usuário e Status -->
+      <div id="userArea" class="flex items-center gap-3">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTEÚDO PRINCIPAL (SPA) -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- VIEW 0: TELA DE LOGIN / REGISTRO / CONFIRMAÇÃO DE SENHA -->
+    <div id="view-login" class="hidden max-w-md mx-auto my-12">
+      <div class="bg-[#0f1512] border border-[#1d2722] rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="text-center mb-6">
+          <div class="inline-flex p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-3">
+            <i data-lucide="shield-check" class="w-8 h-8"></i>
+          </div>
+          <h2 id="authTitle" class="text-xl font-bold text-white">Acesse sua Conta</h2>
+          <p id="authSubtitle" class="text-xs text-gray-400 mt-1">Gestão de Dados de Confinamento e Unidades</p>
+          
+          <div id="firstUserAlert" class="hidden mt-3 p-2.5 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 text-left">
+            <div class="flex items-start gap-2">
+              <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0"></i>
+              <div>
+                O <strong>primeiro usuário</strong> registrado será promovido automaticamente a <strong>Administrador Geral</strong>.
+              </div>
+            </div>
+          </div>
+
+          <div id="authStatusAlert" class="hidden mt-3 p-2.5 rounded-xl text-xs text-left"></div>
+        </div>
+
+        <form id="authForm" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+          <div id="fieldNameGroup" class="hidden">
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Nome Completo</label>
+            <input type="text" id="authName" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="Ex: Daybson Bastos">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">E-mail</label>
+            <input type="email" id="authEmail" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="seu-email@confinamento.com">
+          </div>
+
+          <div id="fieldPasswordGroup">
+            <label class="block text-xs font-semibold text-gray-300 mb-1" id="labelPassword">Senha</label>
+            <input type="password" id="authPassword" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="••••••••">
+            <p id="passwordHint" class="text-[11px] text-gray-500 mt-1 hidden">Você receberá um link no seu e-mail para confirmar seu acesso.</p>
+          </div>
+
+          <button type="submit" id="authSubmitBtn" class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition duration-150 flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-950">
+            <span>Entrar</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </form>
+
+        <div class="mt-6 text-center border-t border-[#1d2722] pt-4">
+          <button type="button" onclick="toggleAuthMode()" id="toggleAuthBtn" class="text-xs text-emerald-400 hover:text-emerald-300 font-medium">
+            Primeiro acesso? Crie sua conta aqui.
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: USUÁRIO RECÉM CRIADO / PENDENTE DE APROVAÇÃO PELO ADMIN -->
+    <div id="view-pendente" class="hidden max-w-lg mx-auto my-12 text-center">
+      <div class="bg-[#0f1512] border border-[#202c25] rounded-3xl p-8 space-y-4 shadow-2xl">
+        <div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+          <i data-lucide="clock" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-xl font-bold text-white">Aguardando Liberação de Módulos</h2>
+        <p class="text-xs text-gray-400 leading-relaxed">
+          Sua conta foi criada com sucesso! O <strong class="text-emerald-400">Administrador</strong> está configurando seu status (Supervisor, Gestor ou Observador), vinculando sua unidade e liberando os módulos de acesso.
+        </p>
+        <div class="pt-2">
+          <button onclick="logout()" class="px-4 py-2 bg-[#16211b] hover:bg-[#1e2c24] text-gray-300 text-xs font-semibold rounded-xl">
+            Sair da Conta
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 1: INÍCIO (Layout WhatsApp com Notificações de Embarque e Contagem Regressiva) -->
+    <div id="view-inicio" class="space-y-6">
+      
+      <!-- Tag de Data de Posição -->
+      <div class="flex items-center justify-between">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold tracking-wider text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 uppercase">
+          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+          <span id="posicaoDataLabel">POSIÇÃO DE 11/10/2026</span>
+        </span>
+        <span id="userUnitBadge" class="text-xs font-medium text-gray-400">
+          Unidade: <strong class="text-white" id="userUnitName">Geral</strong>
+        </span>
+      </div>
+
+      <!-- NOTIFICAÇÕES DE PROGRAMAÇÃO DE EMBARQUE COM CONTAGEM REGRESSIVA -->
+      <div id="alertEmbarquesArea" class="hidden space-y-3"></div>
+
+      <!-- NOTIFICAÇÕES DE SOLICITAÇÃO & RESPOSTA DE TRANSFERÊNCIA DE INSUMOS -->
+      <div id="alertInsumosArea" class="hidden space-y-3"></div>
+
+      <!-- Banner de Boas-Vindas -->
+      <div class="space-y-1">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Olá, <span id="userNameGreeting" class="text-white">DAYBSON</span>. O rebanho está aqui.
+        </h1>
+        <p class="text-sm text-gray-400 font-normal" id="userSubtitleGreeting">
+          6.607 animais em 41 currais. 4 lotes prontos para embarque.
+        </p>
+      </div>
+
+      <!-- 4 CARDS DE INDICADORES / METRICAS RÁPIDAS -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-[#0f1512] border border-[#1b2520] rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-bold text-gray-400 tracking-wider uppercase">ANIMAIS ATIVOS</div>
+            <div class="text-2xl font-black text-emerald-400 mt-1" id="kpiAnimaisAtivos">6.607</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <i data-lucide="beef" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <div class="bg-[#0f1512] border border-[#1b2520] rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-bold text-gray-400 tracking-wider uppercase">CURRAIS OCUPADOS</div>
+            <div class="text-2xl font-black text-white mt-1" id="kpiCurraisOcupados">41</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <i data-lucide="warehouse" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <div class="bg-[#0f1512] border border-[#1b2520] rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-bold text-gray-400 tracking-wider uppercase">PRONTOS P/ EMBARQUE</div>
+            <div class="text-2xl font-black text-amber-400 mt-1" id="kpiProntosEmbarque">4</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="truck" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <div class="bg-[#0f1512] border border-[#1b2520] rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-bold text-gray-400 tracking-wider uppercase">ÚLTIMA ATUALIZAÇÃO</div>
+            <div class="text-xl font-bold text-white mt-1" id="kpiUltimaAtualizacao">11/10/2026</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-gray-500/10 border border-gray-500/20 flex items-center justify-center text-gray-400">
+            <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARDS DE ACESSO RÁPIDO (Condicionados por Módulos Liberados) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+        
+        <!-- Card 1: Relatório de Rebanho -->
+        <div id="card-acc-rebanho" onclick="navigateTo('rebanho')" class="cursor-pointer group bg-[#0e1411] border border-[#1a241f] hover:border-emerald-500/40 rounded-2xl p-6 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-105 transition-transform">
+              <i data-lucide="table" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">Relatório de rebanho</h3>
+            <p class="text-xs text-gray-400 mt-1.5 leading-relaxed">
+              A planilha base com a posição atual de cada curral, dias de trato, dietas e projeções.
+            </p>
+          </div>
+          <div class="mt-8 pt-4 border-t border-[#17201b] flex items-center justify-between text-xs text-gray-400 font-medium">
+            <span id="cardRebanhoSummary">41 LOTES • 6.607 ANIMAIS</span>
+            <i data-lucide="arrow-up-right" class="w-4 h-4 text-gray-400 group-hover:text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+          </div>
+        </div>
+
+        <!-- Card 2: Programação de Embarque -->
+        <div id="card-acc-embarque" onclick="navigateTo('embarque')" class="cursor-pointer group bg-[#0e1411] border border-[#1a241f] hover:border-emerald-500/40 rounded-2xl p-6 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 group-hover:scale-105 transition-transform">
+              <i data-lucide="calendar-days" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white group-hover:text-amber-400 transition-colors">Programação de Embarque</h3>
+            <p class="text-xs text-gray-400 mt-1.5 leading-relaxed">
+              Agende remessas entre unidades, acompanhe a contagem regressiva e anexe NF e GTA.
+            </p>
+          </div>
+          <div class="mt-8 pt-4 border-t border-[#17201b] flex items-center justify-between text-xs text-amber-400 font-medium">
+            <span id="cardEmbarqueSummary">EMBARQUES AGENDADOS</span>
+            <i data-lucide="arrow-up-right" class="w-4 h-4 text-amber-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+          </div>
+        </div>
+
+        <!-- Card 3: Transferência de Insumos -->
+        <div id="card-acc-insumos" onclick="navigateTo('transferencia-insumos')" class="cursor-pointer group bg-[#0e1411] border border-[#1a241f] hover:border-emerald-500/40 rounded-2xl p-6 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4 group-hover:scale-105 transition-transform">
+              <i data-lucide="arrow-left-right" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">Transferência de Insumos</h3>
+            <p class="text-xs text-gray-400 mt-1.5 leading-relaxed">
+              Solicite materiais, aprove remessas entre unidades e controle as baixas e entradas automáticas em estoque.
+            </p>
+          </div>
+          <div class="mt-8 pt-4 border-t border-[#17201b] flex items-center justify-between text-xs text-blue-400 font-medium">
+            <span id="cardInsumosSummary">TRANSFERÊNCIAS ATIVAS</span>
+            <i data-lucide="arrow-up-right" class="w-4 h-4 text-blue-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+          </div>
+        </div>
+
+        <!-- Card 4: Dashboard & Movimentações -->
+        <div id="card-acc-dashboard" onclick="navigateTo('dashboard')" class="cursor-pointer group bg-[#0e1411] border border-[#1a241f] hover:border-emerald-500/40 rounded-2xl p-6 transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-105 transition-transform">
+              <i data-lucide="trending-up" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">Dashboard</h3>
+            <p class="text-xs text-gray-400 mt-1.5 leading-relaxed">
+              Escolha o ponto de corte inicial e final e veja o que mudou por curral, entradas, saídas e mortes.
+            </p>
+          </div>
+          <div class="mt-8 pt-4 border-t border-[#17201b] flex items-center justify-between text-xs text-gray-400 font-medium">
+            <span id="cardDashSummary">HISTÓRICO CONSOLIDADO</span>
+            <i data-lucide="arrow-up-right" class="w-4 h-4 text-gray-400 group-hover:text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- VIEW 2: REBANHO (Tabela Modelo Relatório _reb_) -->
+    <div id="view-rebanho" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="table" class="w-5 h-5 text-emerald-400"></i>
+            Relatório de Rebanho Atual
+          </h2>
+          <p class="text-xs text-gray-400 mt-0.5">Posição consolidada por curral, lote, dietas e previsão de embarque</p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-2">
+          <input type="text" id="rebanhoSearch" oninput="filterRebanhoTable()" placeholder="Buscar baia, lote, raça..." class="bg-[#111814] border border-[#1e2a22] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 w-44">
+          
+          <!-- Botão Atualizar Relatório com Upload Integrado -->
+          <button id="btnAtualizarRelatorioRebanho" onclick="openAtualizarRelatorioModal()" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Atualizar Relatório
+          </button>
+
+          <button onclick="exportRebanhoPDF()" class="px-3 py-1.5 bg-[#141d18] border border-[#233128] hover:bg-[#1a2620] text-emerald-400 font-semibold rounded-xl text-xs flex items-center gap-1.5">
+            <i data-lucide="file-text" class="w-4 h-4"></i> Exportar PDF
+          </button>
+          <a href="/api/export/excel?tipo=rebanho" class="px-3 py-1.5 bg-[#141d18] border border-[#233128] hover:bg-[#1a2620] text-emerald-400 font-semibold rounded-xl text-xs flex items-center gap-1.5">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar Excel
+          </a>
+        </div>
+      </div>
+
+      <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl overflow-hidden shadow-xl">
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-[#121a15] text-gray-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#1f2b23]">
+              <tr>
+                <th class="py-3 px-3">Baia</th>
+                <th class="py-3 px-3">Lote</th>
+                <th class="py-3 px-3">Raça</th>
+                <th class="py-3 px-3">Categoria</th>
+                <th class="py-3 px-3 text-right">Nº Animais</th>
+                <th class="py-3 px-3">Dt Entrada</th>
+                <th class="py-3 px-3 text-right">Peso Entr</th>
+                <th class="py-3 px-3">Dieta</th>
+                <th class="py-3 px-3 text-right">Dias Confin</th>
+                <th class="py-3 px-3 text-right">GPD</th>
+                <th class="py-3 px-3 text-right">Peso Prev</th>
+                <th class="py-3 px-3 text-right">Peso Hoje</th>
+                <th class="py-3 px-3">Previsão Embarque</th>
+                <th class="py-3 px-3">Lotação (m²)</th>
+                <th class="py-3 px-3">Obs</th>
+              </tr>
+            </thead>
+            <tbody id="rebanhoTableBody" class="divide-y divide-[#17201b] font-medium text-gray-300"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: PROGRAMAÇÃO DE EMBARQUE (Novo Módulo Completo) -->
+    <div id="view-embarque" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="truck" class="w-5 h-5 text-amber-400"></i>
+            Programação de Embarques & Transferências
+          </h2>
+          <p class="text-xs text-gray-400 mt-0.5">Agendamento de remessas entre unidades com contagem regressiva e upload de NF e GTA</p>
+        </div>
+
+        <button id="btnNovoEmbarque" onclick="openNovoEmbarqueModal()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i> Programar Novo Embarque
+        </button>
+      </div>
+
+      <!-- Lista de Embarques Programados com Contagem Regressiva -->
+      <div id="embarquesCardsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+
+    <!-- VIEW: TRANSFERÊNCIA DE INSUMOS & SOLICITAÇÕES -->
+    <div id="view-transferencia-insumos" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="arrow-left-right" class="w-5 h-5 text-blue-400"></i>
+            Transferência de Insumos entre Unidades
+          </h2>
+          <p class="text-xs text-gray-400 mt-0.5">Solicitações de materiais, confirmação de envio e baixa/entrada automática nos estoques</p>
+        </div>
+
+        <button id="btnNovaSolInsumo" onclick="openNovaSolicitacaoInsumoModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i> Solicitar Transferência de Insumo
+        </button>
+      </div>
+
+      <!-- Lista de Solicitações e Transferências de Insumos -->
+      <div id="insumosCardsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+
+    <!-- VIEW 4: ESTOQUES DE GADO & SUPRIMENTOS (Novo Módulo Completo) -->
+    <div id="view-estoque" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="boxes" class="w-5 h-5 text-emerald-400"></i>
+            Estoques por Unidade
+          </h2>
+          <p class="text-xs text-gray-400 mt-0.5">Controle de insumos, silagem, ração e animais (Admin cadastra estoques; apenas titular movimenta)</p>
+        </div>
+
+        <!-- Botão criar estoque visível apenas para Admin -->
+        <button id="btnCriarEstoqueAdmin" onclick="openCriarEstoqueModal()" class="hidden px-4 py-2 bg-[#16211b] border border-[#233229] hover:bg-[#1d2b23] text-emerald-400 font-bold rounded-xl text-xs flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-4 h-4"></i> Criar Estoque na Unidade (Admin)
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="estoquesList">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+
+    <!-- VIEW 5: IMPORTAR RELATÓRIO -->
+    <div id="view-importar" class="hidden space-y-6">
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="upload-cloud" class="w-5 h-5 text-emerald-400"></i>
+          Importação de Lotes Ativos
+        </h2>
+        <p class="text-xs text-gray-400 mt-0.5">Atualize a posição do confinamento enviando o relatório em Excel (.xlsx) ou PDF (.pdf) padrão Feed Manager / Nutron</p>
+      </div>
+
+      <div class="bg-[#0e1411] border-2 border-dashed border-[#233129] hover:border-emerald-500/50 rounded-2xl p-8 text-center transition-colors">
+        <input type="file" id="fileImportInput" accept=".xlsx, .xls, .pdf" class="hidden" onchange="handleFileSelected(event)">
+        
+        <div class="max-w-md mx-auto flex flex-col items-center">
+          <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4">
+            <i data-lucide="file-up" class="w-8 h-8"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">Selecione ou arraste seu relatório aqui</h3>
+          <p class="text-xs text-gray-400 mt-1 mb-4">Suporta arquivos Excel (.xlsx) e PDF (.pdf) gerados pelo Nutron / Feed Manager</p>
+          
+          <button type="button" onclick="document.getElementById('fileImportInput').click()" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-950 transition">
+            <i data-lucide="folder-open" class="w-4 h-4"></i> Procurar Arquivo
+          </button>
+        </div>
+      </div>
+
+      <div id="importPreviewArea" class="hidden space-y-4">
+        <div class="flex items-center justify-between bg-[#121915] p-4 rounded-2xl border border-[#202c25]">
+          <div>
+            <div class="text-sm font-bold text-white" id="previewFileName">Arquivo: -</div>
+            <div class="text-xs text-emerald-400" id="previewFileStats">Carregando...</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="cancelImport()" class="px-4 py-2 bg-[#1b2520] hover:bg-[#23302a] text-gray-300 font-semibold rounded-xl text-xs">
+              Cancelar
+            </button>
+            <button onclick="confirmImport()" id="confirmImportBtn" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-2 shadow-md">
+              <i data-lucide="check-circle" class="w-4 h-4"></i> Aplicar e Atualizar Rebanho
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto custom-scrollbar max-h-96">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-[#121a15] text-gray-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#1f2b23] sticky top-0">
+                <tr>
+                  <th class="py-2.5 px-3">Status</th>
+                  <th class="py-2.5 px-3">Baia</th>
+                  <th class="py-2.5 px-3">Lote</th>
+                  <th class="py-2.5 px-3 text-right">Qtd Novo</th>
+                  <th class="py-2.5 px-3 text-right">Qtd Atual</th>
+                  <th class="py-2.5 px-3 text-right">Peso Entrada</th>
+                  <th class="py-2.5 px-3 text-right">Peso Hoje</th>
+                  <th class="py-2.5 px-3">Dieta</th>
+                  <th class="py-2.5 px-3">Previsão Embarque</th>
+                </tr>
+              </thead>
+              <tbody id="importPreviewTableBody" class="divide-y divide-[#17201b] font-medium text-gray-300"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 6: DASHBOARD & FILTROS -->
+    <div id="view-dashboard" class="hidden space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-5 h-5 text-emerald-400"></i>
+            Dashboard de Movimentações
+          </h2>
+          <p class="text-xs text-gray-400 mt-0.5">Filtre por período, curral e analise entradas, saídas, abates e mortes ao longo do tempo</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="exportDashboardPDF()" class="px-3.5 py-2 bg-[#121a15] border border-[#202c25] hover:bg-[#18231d] text-emerald-400 font-semibold rounded-xl text-xs flex items-center gap-2">
+            <i data-lucide="file-text" class="w-4 h-4"></i> Exportar Relatório em PDF
+          </button>
+          <a id="exportDashExcelBtn" href="/api/export/excel?tipo=movimentacoes" class="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-950">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar em Excel
+          </a>
+        </div>
+      </div>
+
+      <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-400 mb-1">Data Início</label>
+          <input type="date" id="filterDataInicio" onchange="loadDashboardData()" class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-400 mb-1">Data Fim</label>
+          <input type="date" id="filterDataFim" onchange="loadDashboardData()" class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-400 mb-1">Tipo de Movimento</label>
+          <select id="filterTipo" onchange="loadDashboardData()" class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+            <option value="">Todos os Tipos</option>
+            <option value="ENTRADAS_COMPRA">Entradas de Compra</option>
+            <option value="ENTRADA_TRANSFERÊNCIA">Entradas por Transferência</option>
+            <option value="VENDA_ABATE">Venda p/ Abate</option>
+            <option value="ABATE_CANTINA">Abate Cantina</option>
+            <option value="MORTES">Mortes</option>
+            <option value="SAÍDA_TRANSFERÊNCIA">Saídas por Transferência</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-400 mb-1">Curral / Baia</label>
+          <input type="text" id="filterBaia" oninput="loadDashboardData()" placeholder="Ex: 01, 26..." class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div class="flex items-end">
+          <button onclick="clearDashboardFilters()" class="w-full py-2 bg-[#17211b] hover:bg-[#1f2c25] text-gray-300 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Limpar Filtros
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">TOTAL DE CABEÇAS (MOVIMENTADAS)</div>
+          <div class="text-2xl font-black text-emerald-400 mt-1" id="dashKpiCabecas">0</div>
+        </div>
+        <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">REGISTROS LOCALIZADOS</div>
+          <div class="text-2xl font-black text-white mt-1" id="dashKpiRegistros">0</div>
+        </div>
+        <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">TOTAL DE ENTRADAS</div>
+          <div class="text-2xl font-black text-blue-400 mt-1" id="dashKpiEntradas">0</div>
+        </div>
+        <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">TOTAL DE SAÍDAS (ABATES)</div>
+          <div class="text-2xl font-black text-amber-400 mt-1" id="dashKpiSaidas">0</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-5">
+          <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-400"></i> Distribuição por Tipo de Movimento
+          </h3>
+          <div class="h-64 relative">
+            <canvas id="chartTipo"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-5">
+          <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="line-chart" class="w-4 h-4 text-emerald-400"></i> Evolução Mensal (Entradas x Saídas)
+          </h3>
+          <div class="h-64 relative">
+            <canvas id="chartEvolucao"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl overflow-hidden shadow-xl">
+        <div class="p-4 border-b border-[#1b2520] flex items-center justify-between">
+          <div class="text-xs font-bold text-white tracking-wider uppercase">Extrato Detalhado de Movimentações</div>
+          <div class="text-[11px] text-gray-400" id="dashTableInfo">0 movimentações</div>
+        </div>
+        <div class="overflow-x-auto custom-scrollbar max-h-96">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-[#121a15] text-gray-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#1f2b23] sticky top-0">
+              <tr>
+                <th class="py-2.5 px-3">Data</th>
+                <th class="py-2.5 px-3">Tipo</th>
+                <th class="py-2.5 px-3">Baia / Lote</th>
+                <th class="py-2.5 px-3 text-right">Qtd (Cab)</th>
+                <th class="py-2.5 px-3">Categoria</th>
+                <th class="py-2.5 px-3 text-right">Peso</th>
+                <th class="py-2.5 px-3 text-right">Preço R$/@</th>
+                <th class="py-2.5 px-3 text-right">Valor Total (R$)</th>
+                <th class="py-2.5 px-3">Origem / Destino</th>
+                <th class="py-2.5 px-3">Obs</th>
+              </tr>
+            </thead>
+            <tbody id="dashTableBody" class="divide-y divide-[#17201b] font-medium text-gray-300"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 7: ADMINISTRAÇÃO (Gestão de Unidades e Gestão de Usuários) -->
+    <div id="view-admin" class="hidden space-y-8">
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="shield" class="w-5 h-5 text-emerald-400"></i>
+          Painel Administrativo
+        </h2>
+        <p class="text-xs text-gray-400 mt-0.5">Gestão de Unidades, atribuição de status de usuários (Supervisor, Gestor, Observador) e liberação de módulos</p>
+      </div>
+
+      <!-- SEÇÃO 1: USUÁRIOS, FUNÇÕES & LIBERAÇÃO DE MÓDULOS -->
+      <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white">Gestão de Usuários & Níveis de Acesso</h3>
+            <p class="text-xs text-gray-400">Atribua os status (Supervisor / Titular, Gestor, Observador, Admin), vincule à Unidade e libere os módulos</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="copyPublicRegisterLink()" class="px-3.5 py-2 bg-[#16211b] border border-[#233229] hover:bg-[#1d2b23] text-gray-300 font-semibold rounded-xl text-xs flex items-center gap-1.5">
+              <i data-lucide="link" class="w-4 h-4 text-emerald-400"></i> Copiar Link de Cadastro
+            </button>
+            <button onclick="openInviteModal()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
+              <i data-lucide="mail-plus" class="w-4 h-4"></i> Convidar por E-mail
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-[#121a15] text-gray-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#1f2b23]">
+              <tr>
+                <th class="py-2.5 px-3">Nome</th>
+                <th class="py-2.5 px-3">E-mail</th>
+                <th class="py-2.5 px-3">Status / Cargo</th>
+                <th class="py-2.5 px-3">Unidade Titular</th>
+                <th class="py-2.5 px-3">Módulos Liberados</th>
+                <th class="py-2.5 px-3 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="adminUsersTableBody" class="divide-y divide-[#17201b] font-medium text-gray-300"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SEÇÃO 2: GESTÃO DE UNIDADES (Nome Atualizado e sem padrão confinamento obrigatório) -->
+      <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white">Gestão de Unidades</h3>
+            <p class="text-xs text-gray-400">Cadastre e configure fazendas, recrias, pastagens, armazéns e confinamentos vinculados a remessas de gado e suprimentos</p>
+          </div>
+          <button onclick="openNewUnitModal()" class="px-4 py-2 bg-[#16211b] border border-[#233229] hover:bg-[#1d2b23] text-emerald-400 font-bold rounded-xl text-xs flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-4 h-4"></i> Nova Unidade
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="adminUnitsList"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- MODAL: ATUALIZAR RELATÓRIO DE REBANHO (IMPORTAR EXCEL / PDF) -->
+  <div id="atualizarRelatorioModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-[#1b2520]">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i>
+            Atualizar Relatório de Rebanho
+          </h3>
+          <p class="text-xs text-gray-400 mt-0.5">Importe o relatório de lotes ativos (.xlsx ou .pdf) para sincronizar as baias e projeções</p>
+        </div>
+        <button onclick="closeAtualizarRelatorioModal()" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- Área de seleção do arquivo -->
+      <div id="modalUploadArea" class="bg-[#121915] border-2 border-dashed border-[#233129] hover:border-emerald-500/50 rounded-2xl p-6 text-center transition-colors">
+        <input type="file" id="modalFileRelatorioInput" accept=".xlsx, .xls, .pdf" class="hidden" onchange="handleModalFileSelected(event)">
+        
+        <div class="max-w-sm mx-auto flex flex-col items-center">
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-3">
+            <i data-lucide="file-up" class="w-6 h-6"></i>
+          </div>
+          <h4 class="text-xs font-bold text-white">Selecione o arquivo do relatório</h4>
+          <p class="text-[11px] text-gray-400 mt-0.5 mb-3">Formatos aceitos: Excel (.xlsx / .xls) ou PDF (.pdf) padrão Nutron / Feed Manager</p>
+          
+          <button type="button" onclick="document.getElementById('modalFileRelatorioInput').click()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            <i data-lucide="folder-open" class="w-4 h-4"></i> Escolher Arquivo
+          </button>
+        </div>
+      </div>
+
+      <!-- Área de Pré-visualização das Mudanças -->
+      <div id="modalPreviewArea" class="hidden flex-1 flex flex-col space-y-3 overflow-hidden">
+        <div class="flex items-center justify-between p-3 bg-[#131d17] rounded-xl border border-emerald-500/30 text-xs">
+          <div>
+            <div class="font-bold text-white" id="modalPreviewFileName">-</div>
+            <div class="text-[11px] text-emerald-400" id="modalPreviewFileStats">-</div>
+          </div>
+          <button type="button" onclick="document.getElementById('modalFileRelatorioInput').click()" class="text-xs text-gray-400 hover:text-white underline">
+            Trocar arquivo
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-[#1c2720] rounded-xl max-h-64">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-[#131b16] text-gray-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#1f2b23] sticky top-0">
+              <tr>
+                <th class="py-2 px-2.5">Status</th>
+                <th class="py-2 px-2.5">Baia</th>
+                <th class="py-2 px-2.5">Lote</th>
+                <th class="py-2 px-2.5 text-right">Qtd Novo</th>
+                <th class="py-2 px-2.5 text-right">Qtd Atual</th>
+                <th class="py-2 px-2.5 text-right">Peso Hoje</th>
+                <th class="py-2 px-2.5">Dieta</th>
+              </tr>
+            </thead>
+            <tbody id="modalPreviewTableBody" class="divide-y divide-[#17201b] font-medium text-gray-300"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#1b2520]">
+        <button type="button" onclick="closeAtualizarRelatorioModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+        <button type="button" id="modalConfirmImportBtn" onclick="confirmModalImport()" disabled class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5">
+          <i data-lucide="check-circle" class="w-4 h-4"></i> Confirmar Atualização
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NOVA SOLICITAÇÃO DE INSUMO -->
+  <div id="solInsumoModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="arrow-left-right" class="w-4 h-4 text-blue-400"></i>
+          Solicitar Transferência de Insumo
+        </h3>
+        <button onclick="closeNovaSolicitacaoInsumoModal()" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="solInsumoForm" onsubmit="handleSalvarSolInsumo(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Unidade Remetente (Onde buscar)</label>
+          <select id="solRemetente" required onchange="handleRemetenteChanged(this.value)" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white"></select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Material Desejado (Disponível no Remetente)</label>
+          <select id="solMaterialSelect" required onchange="handleMaterialSelected(this.value)" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white"></select>
+        </div>
+
+        <div class="p-2.5 bg-[#121915] rounded-xl border border-[#1d2722] flex items-center justify-between text-xs">
+          <span class="text-gray-400">Saldo Atual no Remetente:</span>
+          <span class="font-bold text-emerald-400" id="saldoRemetenteInfo">Selecione o material</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Unidade Solicitante (Destino)</label>
+          <select id="solDestino" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white"></select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Volume Solicitado</label>
+            <input type="number" id="solVolume" required min="1" placeholder="Ex: 50" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Unidade de Medida</label>
+            <input type="text" id="solMedida" readonly class="w-full bg-[#111714] border border-[#1e2a23] rounded-xl px-3 py-2 text-xs text-gray-300">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Data da Necessidade</label>
+          <input type="date" id="solDataNecessidade" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeNovaSolicitacaoInsumoModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-blue-500 hover:bg-blue-400 text-black font-bold rounded-xl text-xs shadow-md">Enviar Solicitação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: RESPONDER SOLICITAÇÃO (ACEITAR / REJEITAR) -->
+  <div id="responderSolModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i>
+          Responder Solicitação de Transferência
+        </h3>
+        <button onclick="closeResponderSolModal()" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div id="responderSolDetalhes" class="p-3 bg-[#121915] rounded-xl border border-[#1b2520] text-xs space-y-1 text-gray-300"></div>
+
+      <form id="responderSolForm" onsubmit="handleSalvarRespostaSol(event)" class="space-y-3">
+        <input type="hidden" id="respSolId">
+        
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Decisão do Remetente</label>
+          <select id="respDecisao" onchange="handleDecisaoChanged(this.value)" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+            <option value="ACEITAR">Aceitar Solicitação</option>
+            <option value="REJEITAR">Rejeitar Solicitação</option>
+          </select>
+        </div>
+
+        <div id="camposAceite" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1">Volume que Pode Enviar</label>
+              <input type="number" id="respVolumeAprovado" min="1" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1">Data Prevista de Envio</label>
+              <input type="date" id="respDataEnvio" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+            </div>
+          </div>
+        </div>
+
+        <div id="camposRejeicao" class="hidden space-y-2">
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Justificativa da Rejeição (Obrigatória)</label>
+          <textarea id="respJustificativa" rows="3" placeholder="Informe o motivo pelo qual a solicitação não pode ser atendida..." class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeResponderSolModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md">Confirmar Resposta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRMAR ENVIO DO INSUMO (REMETENTE) -->
+  <div id="enviarInsumoModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="truck" class="w-4 h-4 text-emerald-400"></i>
+          Confirmar Envio do Material
+        </h3>
+        <button onclick="closeEnviarInsumoModal()" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-xs text-emerald-300">
+        <i data-lucide="info" class="w-4 h-4 inline-block mr-1"></i>
+        Ao confirmar o envio, o saldo será <strong>automaticamente subtraído</strong> do estoque da sua unidade.
+      </div>
+
+      <form id="enviarInsumoForm" onsubmit="handleSalvarEnvioInsumo(event)" class="space-y-3">
+        <input type="hidden" id="envioSolId">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Nome do Motorista Transportador</label>
+          <input type="text" id="envioMotorista" required placeholder="Ex: Carlos Eduardo da Silva" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Número da NF (Opcional)</label>
+          <input type="text" id="envioNumeroNF" placeholder="Ex: NF-e 004812" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeEnviarInsumoModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md">Confirmar Envio e Baixar Estoque</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ANEXAR DOCUMENTO EM TRANSFERÊNCIA DE INSUMOS -->
+  <div id="docInsumoModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i>
+          Anexar Documento / NF da Transferência
+        </h3>
+        <button onclick="closeDocInsumoModal()" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="docInsumoForm" onsubmit="handleSalvarDocInsumo(event)" class="space-y-3">
+        <input type="hidden" id="modalDocInsumoId">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Tipo de Documento</label>
+          <select id="docInsumoTipo" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+            <option value="NF">Nota Fiscal (NF)</option>
+            <option value="Romaneio">Romaneio de Carga</option>
+            <option value="Comprovante">Comprovante de Entrega</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Arquivo</label>
+          <input type="file" id="docInsumoFile" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeDocInsumoModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-blue-500 hover:bg-blue-400 text-black font-bold rounded-xl text-xs shadow-md">Anexar Arquivo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="embarqueModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="truck" class="w-5 h-5 text-amber-400"></i>
+          Programação de Embarque
+        </h3>
+        <button onclick="closeNovoEmbarqueModal()" class="text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="embarqueModalForm" onsubmit="handleSalvarEmbarque(event)" class="space-y-3">
+        <input type="hidden" id="modalEmbarqueId">
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Data do Embarque</label>
+            <input type="date" id="embData" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Tipo de Carga</label>
+            <select id="embTipoCarga" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+              <option value="Gado">Gado (Bovinos)</option>
+              <option value="Suprimento">Suprimentos / Ração</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Unidade Remetente (Origem)</label>
+            <select id="embOrigem" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Unidade Destino</label>
+            <select id="embDestino" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Quantidade de Cabeças</label>
+            <input type="number" id="embQtd" required min="1" placeholder="Ex: 180" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Categoria Animal</label>
+            <input type="text" id="embCategoria" placeholder="Ex: Boi Inteiro, Novilha..." class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Observações de Embarque</label>
+          <textarea id="embObs" rows="2" placeholder="Instruções de transporte, escala, pesagem..." class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeNovoEmbarqueModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md">Salvar Programação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ANEXAR DOCUMENTO (NF / GTA) -->
+  <div id="docModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="file-text" class="w-4 h-4 text-emerald-400"></i>
+          Anexar Documento ao Embarque
+        </h3>
+        <button onclick="closeDocModal()" class="text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="docModalForm" onsubmit="handleSalvarDoc(event)" class="space-y-3">
+        <input type="hidden" id="modalDocEmbarqueId">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Tipo de Documento</label>
+          <select id="docTipo" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            <option value="GTA">Guia de Trânsito Animal (GTA)</option>
+            <option value="NF">Nota Fiscal (NF)</option>
+            <option value="Romaneio">Romaneio de Pesagem</option>
+            <option value="Outro">Outro Documento</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Arquivo (PDF ou Imagem)</label>
+          <input type="file" id="docFileInput" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeDocModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md">Anexar Arquivo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: GESTÃO DE USUÁRIO / ATRIBUIÇÃO DE STATUS & MÓDULOS -->
+  <div id="userModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white" id="userModalTitle">Configurar Acesso do Usuário</h3>
+        <button onclick="closeUserModal()" class="text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="userModalForm" onsubmit="handleSalvarConfigUser(event)" class="space-y-3">
+        <input type="hidden" id="editUserId">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Nome</label>
+          <input type="text" id="editUserName" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">E-mail</label>
+          <input type="email" id="editUserEmail" readonly class="w-full bg-[#111714] border border-[#1c2621] rounded-xl px-3 py-2 text-xs text-gray-400">
+        </div>
+        
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Status do Usuário</label>
+          <select id="editUserRole" onchange="handleRoleChange(this.value)" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            <option value="supervisor">Supervisor (Titular da unidade - cria remessas e movimenta estoques locais)</option>
+            <option value="gestor">Gestor (Visão geral - programa, adia e cancela envios entre todas as unidades)</option>
+            <option value="observador">Observador (Visualiza relatórios e anexa NF/GTA nos embarques)</option>
+            <option value="admin">Administrador (Cria estoques, gerencia usuários e unidades)</option>
+            <option value="pendente">Pendente (Sem acesso até liberação)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Unidade Titular / Vinculada</label>
+          <select id="editUserUnit" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"></select>
+        </div>
+
+        <!-- Seleção de Módulos Liberados -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1.5">Módulos Liberados</label>
+          <div class="grid grid-cols-2 gap-2 p-3 bg-[#131b17] border border-[#202c25] rounded-xl text-xs text-gray-300">
+            <label class="flex items-center gap-2"><input type="checkbox" id="mod_rebanho" class="accent-emerald-500"> Relatório Rebanho</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="mod_embarque" class="accent-emerald-500"> Programação Embarque</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="mod_estoque" class="accent-emerald-500"> Gestão de Estoques</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="mod_importar" class="accent-emerald-500"> Importar Relatórios</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="mod_dashboard" class="accent-emerald-500"> Dashboard & Gráficos</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="mod_admin" class="accent-emerald-500"> Painel Admin</label>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeUserModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md">Salvar Permissões</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: GESTÃO DE UNIDADES (Nova Unidade sem padrão confinamento) -->
+  <div id="unitModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white" id="unitModalTitle">Cadastrar Unidade</h3>
+        <button onclick="closeUnitModal()" class="text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="unitModalForm" onsubmit="handleSaveUnit(event)" class="space-y-3">
+        <input type="hidden" id="modalUnitId">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Nome da Unidade / Propriedade</label>
+          <input type="text" id="modalUnitName" required placeholder="Ex: Fazenda Sulinense, Centro de Recria 02..." class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Tipo de Operação</label>
+          <select id="modalUnitType" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            <option value="Pasto / Recria">Pasto / Recria</option>
+            <option value="Confinamento">Confinamento</option>
+            <option value="Cria / Reprodução">Cria / Reprodução</option>
+            <option value="Armazém / Suprimentos">Armazém / Suprimentos</option>
+            <option value="Geral">Geral</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Código Identificador</label>
+          <input type="text" id="modalUnitCode" placeholder="Ex: SULINENSE" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Capacidade Estimada (Cabeças ou Volume)</label>
+          <input type="number" id="modalUnitCapacity" placeholder="Ex: 5000" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeUnitModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md">Salvar Unidade</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CONVIDAR USUÁRIO POR E-MAIL -->
+  <div id="inviteModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="send" class="w-4 h-4 text-emerald-400"></i>
+          Convidar Usuário por E-mail
+        </h3>
+        <button onclick="closeInviteModal()" class="text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-gray-400">
+        O convidado receberá um e-mail com link para confirmar o acesso e criar sua senha.
+      </p>
+
+      <form id="inviteModalForm" onsubmit="handleSendInvite(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Nome Completo</label>
+          <input type="text" id="inviteName" required placeholder="Ex: Roberto Ferreira" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">E-mail do Convidado</label>
+          <input type="email" id="inviteEmail" required placeholder="roberto@confinamento.com" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Status Inicial</label>
+          <select id="inviteRole" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+            <option value="supervisor">Supervisor (Titular da unidade)</option>
+            <option value="gestor">Gestor</option>
+            <option value="observador">Observador</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeInviteModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" id="btnSubmitInvite" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5">
+            <i data-lucide="mail" class="w-4 h-4"></i> Enviar Convite
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CRIAR / EDITAR ESTOQUE (ADMIN) -->
+  <div id="criarEstoqueModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0f1512] border border-[#202c25] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="boxes" class="w-4 h-4 text-emerald-400"></i>
+          <span id="estoqueModalTitle">Criar Estoque na Unidade (Admin)</span>
+        </h3>
+        <button onclick="closeCriarEstoqueModal()" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="criarEstoqueForm" onsubmit="handleSalvarEstoque(event)" class="space-y-3">
+        <input type="hidden" id="estModalId">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Unidade</label>
+          <select id="estModalUnit" required class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Nome do Item / Descrição</label>
+          <input type="text" id="estModalItem" required placeholder="Ex: Silagem de Milho, Ração Terminação, Sal Mineral..." class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Tipo de Estoque</label>
+            <select id="estModalTipo" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+              <option value="Suprimento">Suprimento / Insumo</option>
+              <option value="Gado">Gado / Bovinos</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Unidade de Medida</label>
+            <input type="text" id="estModalMedida" required placeholder="Ex: Ton, Sacos, Kg, Cabeças" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Saldo Atual</label>
+            <input type="number" id="estModalQtd" required min="0" placeholder="0" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Estoque Mínimo</label>
+            <input type="number" id="estModalMinimo" min="0" placeholder="0" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Estoque Máximo</label>
+            <input type="number" id="estModalMaximo" min="0" placeholder="0" class="w-full bg-[#161f1a] border border-[#233129] rounded-xl px-3 py-2 text-xs text-white">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3">
+          <button type="button" onclick="closeCriarEstoqueModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md">Salvar Estoque</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

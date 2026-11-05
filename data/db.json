@@ -1,0 +1,21 @@
+{
+  "users": [],
+  "units": [
+    {
+      "id": "unit_1",
+      "name": "Fazenda Caregi",
+      "code": "MATRIZ",
+      "type": "Confinamento",
+      "capacity": 11000,
+      "active": true,
+      "createdAt": "2026-11-05T01:16:45.457Z"
+    }
+  ],
+  "baias": [],
+  "lotacao": {},
+  "movimentacoes": [],
+  "programacaoEmbarques": [],
+  "estoques": [],
+  "transferenciasInsumos": [],
+  "lastUpdate": null
+}
