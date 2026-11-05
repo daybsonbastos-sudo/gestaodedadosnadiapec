@@ -4,18 +4,59 @@
     {
       "id": "unit_1",
       "name": "Fazenda Caregi",
-      "code": "MATRIZ",
+      "code": "Confinamento Caregi",
       "type": "Confinamento",
       "capacity": 11000,
       "active": true,
       "createdAt": "2026-11-05T01:16:45.457Z"
+    },
+    {
+      "id": "unit_1793849380799",
+      "name": "Fazenda Santo Andre II",
+      "code": "SAII",
+      "type": "Pasto / Recria",
+      "capacity": 10000,
+      "active": true,
+      "createdAt": "2026-11-05T03:29:40.799Z"
+    },
+    {
+      "id": "unit_1793849410883",
+      "name": "Fazenda Sulinense",
+      "code": "Sulinense",
+      "type": "Pasto / Recria",
+      "capacity": 5000,
+      "active": true,
+      "createdAt": "2026-11-05T03:30:10.892Z"
     }
   ],
   "baias": [],
   "lotacao": {},
   "movimentacoes": [],
   "programacaoEmbarques": [],
-  "estoques": [],
+  "estoques": [
+    {
+      "id": "est_1793849292389",
+      "unitId": "unit_1",
+      "item": "DDG",
+      "tipo": "Suprimento",
+      "quantidade": 10000,
+      "unidadeMedida": "kg",
+      "minimo": 10000,
+      "maximo": 30000,
+      "updatedAt": "2026-11-05T03:28:12.399Z"
+    },
+    {
+      "id": "est_1793849480448",
+      "unitId": "unit_1793849380799",
+      "item": "Ração",
+      "tipo": "Suprimento",
+      "quantidade": 10000,
+      "unidadeMedida": "kg",
+      "minimo": 5000,
+      "maximo": 25000,
+      "updatedAt": "2026-11-05T03:31:20.448Z"
+    }
+  ],
   "transferenciasInsumos": [],
   "lastUpdate": null
 }

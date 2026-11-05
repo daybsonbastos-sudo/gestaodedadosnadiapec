@@ -376,7 +376,7 @@ async function loadInicioData() {
     
     const cardInsumosSum = document.getElementById('cardInsumosSummary');
     if (cardInsumosSum) {
-      const ativas = allTransferenciasInsumos.filter(t => t.status === 'PENDENTE' || t.status === 'APROVADA' || t.status === 'ENVIADA').length;
+      const ativas = allTransferenciasInsumos.filter(t => t.status === 'PENDENTE' || t.status === 'CONFIRMADA' || t.status === 'APROVADA' || t.status === 'ENVIADA').length;
       cardInsumosSum.textContent = `${ativas} TRANSFERÊNCIAS ATIVAS`;
     }
 
@@ -395,19 +395,25 @@ function renderAlertasInsumosInicio() {
   const isGestorOuAdmin = currentUser.role === 'admin' || currentUser.role === 'gestor';
   const myUnitId = currentUser.unitId;
 
-  // 1. Notificação para Unidade Remetente ou Gestor: Novas solicitações pendentes
+  // 1. Notificação para Unidade Remetente ou Gestor: Novas solicitações pendentes de resposta
   const solicitacoesParaRemetente = allTransferenciasInsumos.filter(t => {
     if (t.status !== 'PENDENTE') return false;
     return isGestorOuAdmin || t.remetenteUnitId === myUnitId;
   });
 
-  // 2. Notificação para Unidade Solicitante: Respostas (Aprovada ou Rejeitada)
+  // 2. Notificação para Unidade Solicitante: Respostas, Envio e Pendências de Recebimento
   const respostasParaSolicitante = allTransferenciasInsumos.filter(t => {
-    if (t.status !== 'APROVADA' && t.status !== 'REJEITADA' && t.status !== 'ENVIADA') return false;
+    if (t.status !== 'CONFIRMADA' && t.status !== 'APROVADA' && t.status !== 'REJEITADA' && t.status !== 'ENVIADA') return false;
     return isGestorOuAdmin || t.solicitanteUnitId === myUnitId;
   });
 
-  if (solicitacoesParaRemetente.length === 0 && respostasParaSolicitante.length === 0) {
+  // 3. Notificação para Unidade Remetente: Confirmadas aguardando envio
+  const confirmadasAguardandoEnvio = allTransferenciasInsumos.filter(t => {
+    if (t.status !== 'CONFIRMADA' && t.status !== 'APROVADA') return false;
+    return isGestorOuAdmin || t.remetenteUnitId === myUnitId;
+  });
+
+  if (solicitacoesParaRemetente.length === 0 && respostasParaSolicitante.length === 0 && confirmadasAguardandoEnvio.length === 0) {
     alertArea.classList.add('hidden');
     return;
   }
@@ -415,7 +421,7 @@ function renderAlertasInsumosInicio() {
   alertArea.classList.remove('hidden');
   let html = '';
 
-  // Cards de solicitação recebida (para o remetente aceitar/rejeitar)
+  // Cards de solicitação recebida (para o remetente confirmar resposta)
   solicitacoesParaRemetente.forEach(sol => {
     html += `
       <div class="bg-[#121915] border border-blue-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
@@ -437,27 +443,71 @@ function renderAlertasInsumosInicio() {
 
         <div class="flex items-center gap-2">
           <button onclick="abrirModalRespostaSol('${sol.id}')" class="px-3.5 py-1.5 bg-blue-500 hover:bg-blue-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
-            <i data-lucide="check-square" class="w-3.5 h-3.5"></i> Abrir & Responder
+            <i data-lucide="check-square" class="w-3.5 h-3.5"></i> Confirmar Resposta
           </button>
         </div>
       </div>
     `;
   });
 
-  // Cards de resposta recebida pelo solicitante (Aprovada ou Rejeitada ou Enviada)
+  // Cards para o Remetente: Transferência Confirmada -> Pronto para Enviar
+  confirmadasAguardandoEnvio.forEach(sol => {
+    html += `
+      <div class="bg-[#121915] border border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
+            <i data-lucide="truck" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white uppercase tracking-wide">${sol.numero} • Transferência Confirmada</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">PRONTO P/ ENVIO</span>
+            </div>
+            <div class="text-xs text-gray-300 mt-1">
+              Transferência de <strong>${sol.volumeAprovado} ${sol.unidadeMedida}</strong> de <strong class="text-emerald-400">${sol.material}</strong> para <strong>${sol.solicitanteUnitNome}</strong>.
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="abrirModalEnvioInsumo('${sol.id}')" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
+            <i data-lucide="truck" class="w-3.5 h-3.5"></i> Confirmar Envio
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  // Cards de resposta recebida pelo solicitante (Confirmada, Pendente de Recebimento ou Rejeitada)
   respostasParaSolicitante.slice(0, 3).forEach(sol => {
     let statusBadge = '';
     let statusText = '';
+    let acaoHtml = '';
 
-    if (sol.status === 'APROVADA') {
-      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">APROVADA</span>`;
-      statusText = `O remetente <strong>${sol.remetenteUnitNome}</strong> aprovou o envio de <strong>${sol.volumeAprovado} ${sol.unidadeMedida}</strong> para <strong>${sol.dataPrevisaoEnvio}</strong>.`;
+    if (sol.status === 'CONFIRMADA' || sol.status === 'APROVADA') {
+      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">TRANSFERÊNCIA CONFIRMADA</span>`;
+      statusText = `O remetente <strong>${sol.remetenteUnitNome}</strong> confirmou a transferência de <strong>${sol.volumeAprovado} ${sol.unidadeMedida}</strong> para envio em <strong>${sol.dataPrevisaoEnvio}</strong>.`;
+      acaoHtml = `
+        <button onclick="navigateTo('transferencia-insumos')" class="px-3 py-1.5 bg-[#17221c] hover:bg-[#202e26] text-gray-200 font-medium rounded-xl text-xs flex items-center gap-1.5 border border-[#25362c]">
+          <i data-lucide="eye" class="w-3.5 h-3.5 text-blue-400"></i> Ver Detalhes
+        </button>
+      `;
     } else if (sol.status === 'ENVIADA') {
-      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">MATERIAL A CAMINHO</span>`;
-      statusText = `Material enviado pelo motorista <strong>${sol.dadosEnvio?.motorista}</strong> ${sol.dadosEnvio?.numeroNF ? `(NF: ${sol.dadosEnvio.numeroNF})` : ''}. Confirme o recebimento assim que descarregar.`;
+      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">PENDENTE DE RECEBIMENTO</span>`;
+      statusText = `Material enviado com motorista <strong>${sol.dadosEnvio?.motorista || 'Designado'}</strong> ${sol.dadosEnvio?.numeroNF ? `(NF: ${sol.dadosEnvio.numeroNF})` : ''}. Confirme o recebimento assim que for entregue.`;
+      acaoHtml = `
+        <button onclick="confirmarRecebimentoInsumo('${sol.id}')" class="px-3.5 py-1.5 bg-purple-500 hover:bg-purple-400 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
+          <i data-lucide="package-check" class="w-3.5 h-3.5"></i> Confirmar Recebimento
+        </button>
+      `;
     } else if (sol.status === 'REJEITADA') {
       statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30">REJEITADA</span>`;
       statusText = `Solicitação rejeitada por <strong>${sol.remetenteUnitNome}</strong>. Motivo: "${sol.justificativaRejeicao || 'Sem justificativa'}".`;
+      acaoHtml = `
+        <button onclick="navigateTo('transferencia-insumos')" class="px-3 py-1.5 bg-[#17221c] hover:bg-[#202e26] text-gray-200 font-medium rounded-xl text-xs flex items-center gap-1.5 border border-[#25362c]">
+          <i data-lucide="eye" class="w-3.5 h-3.5 text-blue-400"></i> Ver Detalhes
+        </button>
+      `;
     }
 
     html += `
@@ -468,16 +518,14 @@ function renderAlertasInsumosInicio() {
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-white">${sol.numero} • Resposta de Solicitação</span>
+              <span class="text-xs font-bold text-white">${sol.numero} • Status de Insumos</span>
               ${statusBadge}
             </div>
             <div class="text-xs text-gray-300 mt-1">${statusText}</div>
           </div>
         </div>
 
-        <button onclick="navigateTo('transferencia-insumos')" class="px-3 py-1.5 bg-[#17221c] hover:bg-[#202e26] text-gray-200 font-medium rounded-xl text-xs flex items-center gap-1.5 border border-[#25362c]">
-          <i data-lucide="eye" class="w-3.5 h-3.5 text-blue-400"></i> Ver no Módulo
-        </button>
+        ${acaoHtml}
       </div>
     `;
   });
@@ -664,6 +712,22 @@ function exportRebanhoPDF() {
 // -------------------------------------------------------------
 // VIEW: TRANSFERÊNCIA DE INSUMOS & SOLICITAÇÕES
 // -------------------------------------------------------------
+let currentInsumosTab = 'TODAS'; // 'TODAS' | 'ANDAMENTO' | 'ARQUIVADAS'
+
+function setInsumosTab(tab) {
+  currentInsumosTab = tab;
+  ['Todas', 'Andamento', 'Arquivadas'].forEach(t => {
+    const btn = document.getElementById('tabInsumos' + t);
+    if (!btn) return;
+    if (t.toUpperCase() === tab) {
+      btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-500/20 text-blue-300 border border-blue-500/30';
+    } else {
+      btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition';
+    }
+  });
+  renderTransferenciasInsumosCards();
+}
+
 async function loadTransferenciasInsumosData() {
   try {
     const [resTransf, resUnits, resEst] = await Promise.all([
@@ -674,6 +738,23 @@ async function loadTransferenciasInsumosData() {
     allTransferenciasInsumos = await resTransf.json();
     allUnits = await resUnits.json();
     allEstoques = await resEst.json();
+
+    // Atualizar contadores das abas
+    const cTodas = document.getElementById('countInsumosTodas');
+    const cAndamento = document.getElementById('countInsumosAndamento');
+    const cArquivadas = document.getElementById('countInsumosArquivadas');
+
+    if (cTodas) cTodas.textContent = allTransferenciasInsumos.length;
+    if (cAndamento) {
+      const andamento = allTransferenciasInsumos.filter(t => 
+        t.status === 'PENDENTE' || t.status === 'CONFIRMADA' || t.status === 'APROVADA' || t.status === 'ENVIADA'
+      ).length;
+      cAndamento.textContent = andamento;
+    }
+    if (cArquivadas) {
+      const arq = allTransferenciasInsumos.filter(t => t.status === 'ARQUIVADA' || t.status === 'RECEBIDA').length;
+      cArquivadas.textContent = arq;
+    }
 
     // Controle do botão solicitar: Apenas supervisor ou gestor/admin
     const canRequest = currentUser.role === 'admin' || currentUser.role === 'gestor' || currentUser.role === 'supervisor';
@@ -700,11 +781,36 @@ function renderTransferenciasInsumosCards() {
 
   const isGestorOuAdmin = currentUser.role === 'admin' || currentUser.role === 'gestor';
   const myUnitId = currentUser.unitId;
+  const busca = (document.getElementById('insumosSearchInput')?.value || '').toLowerCase().trim();
 
-  container.innerHTML = allTransferenciasInsumos.map(t => {
-    // Cálculo da contagem regressiva para envio (se aprovada)
+  // Filtragem por aba
+  let list = allTransferenciasInsumos.slice();
+  if (currentInsumosTab === 'ANDAMENTO') {
+    list = list.filter(t => t.status === 'PENDENTE' || t.status === 'CONFIRMADA' || t.status === 'APROVADA' || t.status === 'ENVIADA');
+  } else if (currentInsumosTab === 'ARQUIVADAS') {
+    list = list.filter(t => t.status === 'ARQUIVADA' || t.status === 'RECEBIDA');
+  }
+
+  // Filtragem por busca
+  if (busca) {
+    list = list.filter(t => 
+      (t.numero && t.numero.toLowerCase().includes(busca)) ||
+      (t.material && t.material.toLowerCase().includes(busca)) ||
+      (t.remetenteUnitNome && t.remetenteUnitNome.toLowerCase().includes(busca)) ||
+      (t.solicitanteUnitNome && t.solicitanteUnitNome.toLowerCase().includes(busca)) ||
+      (t.dadosEnvio?.motorista && t.dadosEnvio.motorista.toLowerCase().includes(busca))
+    );
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="col-span-2 py-12 text-center text-gray-500 text-xs">Nenhuma transferência encontrada com os filtros selecionados.</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(t => {
+    // Cálculo da contagem regressiva para envio (se confirmada)
     let countdownBadge = '';
-    if (t.status === 'APROVADA' && t.dataPrevisaoEnvio) {
+    if ((t.status === 'CONFIRMADA' || t.status === 'APROVADA') && t.dataPrevisaoEnvio) {
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
       const dataPrev = new Date(t.dataPrevisaoEnvio + 'T00:00:00');
@@ -721,18 +827,52 @@ function renderTransferenciasInsumosCards() {
       }
     }
 
-    let statusPill = '';
-    if (t.status === 'PENDENTE') statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">AGUARDANDO APROVAÇÃO</span>`;
-    else if (t.status === 'APROVADA') statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">APROVADA</span>`;
-    else if (t.status === 'ENVIADA') statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse">EM TRÂNSITO</span>`;
-    else if (t.status === 'RECEBIDA') statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">RECEBIDA / CONCLUÍDA</span>`;
-    else if (t.status === 'REJEITADA') statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">REJEITADA</span>`;
-
-    // Permissões de ação
+    // Permissões e papéis
     const isRemetente = myUnitId === t.remetenteUnitId;
     const isSolicitante = myUnitId === t.solicitanteUnitId;
+
+    let statusPill = '';
+    let statusDescricaoBox = '';
+
+    if (t.status === 'PENDENTE') {
+      statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">PENDENTE DE RESPOSTA</span>`;
+    } else if (t.status === 'CONFIRMADA' || t.status === 'APROVADA') {
+      statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">TRANSFERÊNCIA CONFIRMADA</span>`;
+    } else if (t.status === 'ENVIADA') {
+      if (isRemetente && !isSolicitante) {
+        statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-slate-600/30 text-slate-300 border border-slate-500/30">FINALIZADA (ENVIADA)</span>`;
+        statusDescricaoBox = `
+          <div class="p-2.5 bg-[#121915] border border-gray-500/30 rounded-xl text-xs text-gray-300 flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+            <span>Solicitação finalizada pelo remetente e saldo baixado do estoque. Aguardando confirmação de recebimento no destino (<strong>${t.solicitanteUnitNome}</strong>).</span>
+          </div>`;
+      } else if (isSolicitante && !isRemetente) {
+        statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">PENDENTE DE RECEBIMENTO</span>`;
+        statusDescricaoBox = `
+          <div class="p-2.5 bg-amber-950/30 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
+            <i data-lucide="truck" class="w-4 h-4 text-amber-400 flex-shrink-0 animate-bounce"></i>
+            <span>Material em trânsito com o motorista <strong>${t.dadosEnvio?.motorista || 'Designado'}</strong>. Confirme o recebimento assim que for descarregado na sua unidade.</span>
+          </div>`;
+      } else {
+        statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 animate-pulse">PENDENTE DE RECEBIMENTO (EM TRÂNSITO)</span>`;
+      }
+    } else if (t.status === 'ARQUIVADA' || t.status === 'RECEBIDA') {
+      statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">TRANSFERÊNCIA ARQUIVADA</span>`;
+      statusDescricaoBox = `
+        <div class="p-2.5 bg-purple-950/20 border border-purple-500/30 rounded-xl text-xs text-purple-300 flex items-center gap-2">
+          <i data-lucide="archive" class="w-4 h-4 text-purple-400 flex-shrink-0"></i>
+          <span>Transferência arquivada e concluída. Saldo somado ao estoque de <strong>${t.solicitanteUnitNome}</strong> em ${t.dadosRecebimento?.dataRecebimento || '-'}.</span>
+        </div>`;
+    } else if (t.status === 'REJEITADA') {
+      statusPill = `<span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30">REJEITADA</span>`;
+    }
+
+    // Regras de botões de ação:
+    // 1. Responder: enquanto PENDENTE
     const canResponder = (isRemetente || isGestorOuAdmin) && t.status === 'PENDENTE';
-    const canEnviar = (isRemetente || isGestorOuAdmin) && t.status === 'APROVADA';
+    // 2. Enviar: após confirmada a resposta, o botão muda para Confirmar Envio!
+    const canEnviar = (isRemetente || isGestorOuAdmin) && (t.status === 'CONFIRMADA' || t.status === 'APROVADA');
+    // 3. Receber: quando ENVIADA, o destinatário (ou gestor/admin) pode confirmar recebimento
     const canReceber = (isSolicitante || isGestorOuAdmin) && t.status === 'ENVIADA';
 
     const docsHtml = (t.documentos || []).map(d => `
@@ -774,7 +914,7 @@ function renderTransferenciasInsumosCards() {
           </div>
         </div>
 
-        ${t.status === 'APROVADA' || t.status === 'ENVIADA' || t.status === 'RECEBIDA' ? `
+        ${t.status === 'CONFIRMADA' || t.status === 'APROVADA' || t.status === 'ENVIADA' || t.status === 'ARQUIVADA' || t.status === 'RECEBIDA' ? `
           <div class="p-3 bg-[#131d18] border border-emerald-500/20 rounded-xl text-xs space-y-1 text-gray-300">
             <div>Volume Aprovado: <strong class="text-emerald-400">${t.volumeAprovado} ${t.unidadeMedida}</strong></div>
             <div>Previsão de Envio: <strong class="text-white">${t.dataPrevisaoEnvio}</strong></div>
@@ -784,12 +924,14 @@ function renderTransferenciasInsumosCards() {
               </div>
             ` : ''}
             ${t.dadosRecebimento ? `
-              <div class="text-emerald-400 font-semibold">
+              <div class="text-emerald-400 font-semibold pt-1 border-t border-[#1e2e25]">
                 ✓ Recebido por ${t.dadosRecebimento.recebidoPor} em ${t.dadosRecebimento.dataRecebimento}
               </div>
             ` : ''}
           </div>
         ` : ''}
+
+        ${statusDescricaoBox}
 
         ${t.status === 'REJEITADA' ? `
           <div class="p-3 bg-red-950/20 border border-red-500/30 rounded-xl text-xs text-red-300">
@@ -802,19 +944,19 @@ function renderTransferenciasInsumosCards() {
           <div class="flex items-center gap-2">
             ${canResponder ? `
               <button onclick="abrirModalRespostaSol('${t.id}')" class="px-3.5 py-1.5 bg-blue-500 hover:bg-blue-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
-                <i data-lucide="check-square" class="w-3.5 h-3.5"></i> Aceitar ou Rejeitar
+                <i data-lucide="check-square" class="w-3.5 h-3.5"></i> Confirmar Resposta
               </button>
             ` : ''}
 
             ${canEnviar ? `
               <button onclick="abrirModalEnvioInsumo('${t.id}')" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
-                <i data-lucide="send" class="w-3.5 h-3.5"></i> Informar Envio (Baixar Estoque)
+                <i data-lucide="truck" class="w-3.5 h-3.5"></i> Confirmar Envio
               </button>
             ` : ''}
 
             ${canReceber ? `
-              <button onclick="confirmarRecebimentoInsumo('${t.id}')" class="px-3.5 py-1.5 bg-purple-500 hover:bg-purple-400 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md">
-                <i data-lucide="package-check" class="w-3.5 h-3.5"></i> Confirmar Recebimento (Somar Estoque)
+              <button onclick="confirmarRecebimentoInsumo('${t.id}')" class="px-4 py-2 bg-purple-500 hover:bg-purple-400 text-white font-extrabold rounded-xl text-xs flex items-center gap-2 shadow-lg animate-pulse">
+                <i data-lucide="package-check" class="w-4 h-4"></i> Confirmar Recebimento
               </button>
             ` : ''}
           </div>
@@ -981,6 +1123,12 @@ async function handleSalvarRespostaSol(e) {
   const dataPrevisaoEnvio = document.getElementById('respDataEnvio').value;
   const justificativaRejeicao = document.getElementById('respJustificativa').value;
 
+  const sol = allTransferenciasInsumos.find(t => t.id === id);
+  const decisaoTexto = decisao === 'ACEITAR' ? 'CONFIRMAR A TRANSFERÊNCIA' : 'REJEITAR A SOLICITAÇÃO';
+  if (!confirm(`CONFIRMAÇÃO DE RESPOSTA:\n\nDeseja realmente ${decisaoTexto} do insumo "${sol ? sol.material : ''}" para ${sol ? sol.solicitanteUnitNome : 'o destinatário'}?`)) {
+    return;
+  }
+
   try {
     const res = await fetch(`/api/transferencias-insumos/${id}/responder`, {
       method: 'POST',
@@ -1005,7 +1153,11 @@ async function handleSalvarRespostaSol(e) {
 
     closeResponderSolModal();
     loadTransferenciasInsumosData();
-    alert(`Resposta registrada com sucesso! A unidade solicitante foi notificada.`);
+    if (decisao === 'ACEITAR') {
+      alert(`Transferência confirmada com sucesso! O status foi alterado para 'TRANSFERÊNCIA CONFIRMADA' e o botão agora permite 'Confirmar Envio'.`);
+    } else {
+      alert(`Solicitação rejeitada com sucesso.`);
+    }
   } catch (err) {
     alert('Erro de conexão ao salvar resposta.');
   }
@@ -1029,6 +1181,24 @@ async function handleSalvarEnvioInsumo(e) {
   const motorista = document.getElementById('envioMotorista').value;
   const numeroNF = document.getElementById('envioNumeroNF').value;
 
+  const sol = allTransferenciasInsumos.find(t => t.id === id);
+  const volume = sol ? (sol.volumeAprovado || sol.volumeSolicitado) : '';
+  const mat = sol ? sol.material : '';
+  const unMed = sol ? sol.unidadeMedida : '';
+  const remNome = sol ? sol.remetenteUnitNome : '';
+  const destNome = sol ? sol.solicitanteUnitNome : '';
+
+  const confirmar = confirm(
+    `CONFIRMAÇÃO DE ENVIO E BAIXA NO ESTOQUE:\n\n` +
+    `Deseja confirmar o envio de ${volume} ${unMed} de "${mat}"?\n\n` +
+    `• De: ${remNome} ➔ Para: ${destNome}\n` +
+    `• Motorista: ${motorista}\n` +
+    `• NF: ${numeroNF || 'Não informada'}\n\n` +
+    `ATENÇÃO: O saldo de ${volume} ${unMed} será BAIXADO IMEDIATAMENTE do estoque da sua unidade. A solicitação ficará como FINALIZADA para você e PENDENTE DE RECEBIMENTO para o destinatário.\n\n` +
+    `Clique em 'OK' para confirmar o envio.`
+  );
+  if (!confirmar) return;
+
   try {
     const res = await fetch(`/api/transferencias-insumos/${id}/enviar`, {
       method: 'POST',
@@ -1050,7 +1220,7 @@ async function handleSalvarEnvioInsumo(e) {
 
     closeEnviarInsumoModal();
     loadTransferenciasInsumosData();
-    alert(data.message || 'Envio confirmado com sucesso!');
+    alert(`Envio confirmado com sucesso! O saldo foi baixado do seu estoque. Para você, a solicitação aparece como finalizada e, para o destinatário (${destNome}), como pendente de recebimento.`);
   } catch (err) {
     alert('Erro ao enviar material.');
   }
@@ -1058,7 +1228,20 @@ async function handleSalvarEnvioInsumo(e) {
 
 // Confirmar recebimento de insumo (Solicitante)
 async function confirmarRecebimentoInsumo(id) {
-  if (!confirm('Deseja confirmar o recebimento e descarregamento deste material na sua unidade?')) return;
+  const sol = allTransferenciasInsumos.find(t => t.id === id);
+  const volume = sol ? (sol.volumeAprovado || sol.volumeSolicitado) : '';
+  const mat = sol ? sol.material : '';
+  const unMed = sol ? sol.unidadeMedida : '';
+  const destNome = sol ? sol.solicitanteUnitNome : 'sua unidade';
+
+  const confirmar = confirm(
+    `CONFIRMAÇÃO DE RECEBIMENTO E ENTRADA NO ESTOQUE:\n\n` +
+    `Confirma o recebimento e conferência de ${volume} ${unMed} de "${mat}" na unidade "${destNome}"?\n\n` +
+    `• O saldo será AUTOMATICAMENTE SOMADO ao estoque da sua unidade.\n` +
+    `• A transferência será ARQUIVADA e ficará disponível no histórico e no Dashboard.\n\n` +
+    `Clique em 'OK' para confirmar o recebimento.`
+  );
+  if (!confirmar) return;
 
   try {
     const res = await fetch(`/api/transferencias-insumos/${id}/receber`, {
@@ -1078,7 +1261,7 @@ async function confirmarRecebimentoInsumo(id) {
     }
 
     loadTransferenciasInsumosData();
-    alert(data.message || 'Recebimento confirmado! Saldo incorporado ao estoque da sua unidade.');
+    alert(data.message || `Recebimento confirmado! Saldo incorporado ao estoque e transferência arquivada com sucesso.`);
   } catch (err) {
     alert('Erro ao confirmar recebimento.');
   }
@@ -1282,6 +1465,11 @@ async function handleSalvarEmbarque(e) {
     return;
   }
 
+  if (id) {
+    const conf = confirm(`CONFIRMAÇÃO DE EDIÇÃO DE EMBARQUE:\n\nDeseja realmente salvar as alterações nesta programação de embarque de ${qtdCabecas} cabeças?`);
+    if (!conf) return;
+  }
+
   const payload = {
     dataEmbarque,
     tipoCarga,
@@ -1314,7 +1502,7 @@ async function handleSalvarEmbarque(e) {
 
     closeNovoEmbarqueModal();
     loadEmbarquesData();
-    alert('Programação de embarque salva com sucesso!');
+    alert(id ? 'Programação de embarque atualizada com sucesso!' : 'Programação de embarque criada com sucesso!');
   } catch (err) {
     alert('Erro de conexão com o servidor.');
   }
@@ -1520,6 +1708,21 @@ async function handleSalvarEstoque(e) {
   const minimo = document.getElementById('estModalMinimo').value;
   const maximo = document.getElementById('estModalMaximo').value;
 
+  if (id) {
+    const estAtual = allEstoques.find(e => e.id === id);
+    const un = allUnits.find(u => u.id === unitId);
+    const conf = confirm(
+      `CONFIRMAÇÃO DE EDIÇÃO DE ESTOQUE:\n\n` +
+      `Deseja realmente salvar as alterações no estoque de "${estAtual ? estAtual.item : item}"?\n\n` +
+      `• Item: ${item}\n` +
+      `• Unidade: ${un ? un.name : '-'}\n` +
+      `• Quantidade: ${quantidade} ${unidadeMedida}\n` +
+      `• Mínimo: ${minimo} | Máximo: ${maximo}\n\n` +
+      `Clique em 'OK' para confirmar a alteração ou 'Cancelar' para desistir.`
+    );
+    if (!conf) return;
+  }
+
   const endpoint = id ? `/api/estoques/${id}` : '/api/estoques';
   const method = id ? 'PUT' : 'POST';
 
@@ -1552,7 +1755,16 @@ async function handleSalvarEstoque(e) {
 }
 
 async function excluirEstoque(id) {
-  if (!confirm('Deseja realmente excluir este cadastro de estoque?')) return;
+  const est = allEstoques.find(e => e.id === id);
+  const un = allUnits.find(u => u.id === (est ? est.unitId : ''));
+  const conf = confirm(
+    `ATENÇÃO - CONFIRMAÇÃO DE EXCLUSÃO DE ESTOQUE:\n\n` +
+    `Tem certeza de que deseja EXCLUIR permanentemente o cadastro de estoque de "${est ? est.item : 'este item'}"${un ? ' da unidade ' + un.name : ''}?\n\n` +
+    `Esta ação removerá o controle deste insumo e não poderá ser desfeita.\n\n` +
+    `Clique em 'OK' para excluir ou 'Cancelar' para manter o estoque.`
+  );
+  if (!conf) return;
+
   try {
     const res = await fetch(`/api/estoques/${id}?usuarioRole=${currentUser.role}`, {
       method: 'DELETE'
@@ -1567,8 +1779,21 @@ async function excluirEstoque(id) {
 }
 
 async function movimentarEstoque(id, tipoMovimento) {
-  const qtdStr = prompt(`Informe a quantidade para ${tipoMovimento === 'ENTRADA' ? 'dar entrada no' : 'dar saída do'} estoque:`);
-  if (!qtdStr || isNaN(qtdStr)) return;
+  const est = allEstoques.find(e => e.id === id);
+  if (!est) return;
+
+  const qtdStr = prompt(`Informe a quantidade para ${tipoMovimento === 'ENTRADA' ? 'dar ENTRADA no' : 'dar SAÍDA do'} estoque de "${est.item}":`);
+  if (!qtdStr || isNaN(qtdStr) || Number(qtdStr) <= 0) return;
+
+  const qtd = Number(qtdStr);
+  const conf = confirm(
+    `CONFIRMAÇÃO DE MOVIMENTAÇÃO DE ESTOQUE:\n\n` +
+    `Confirma a ${tipoMovimento === 'ENTRADA' ? 'ENTRADA' : 'SAÍDA'} de ${qtd} ${est.unidadeMedida} no estoque de "${est.item}"?\n\n` +
+    `• Saldo Atual: ${est.quantidade} ${est.unidadeMedida}\n` +
+    `• Novo Saldo Previsto: ${tipoMovimento === 'ENTRADA' ? (est.quantidade + qtd) : (est.quantidade - qtd)} ${est.unidadeMedida}\n\n` +
+    `Clique em 'OK' para confirmar.`
+  );
+  if (!conf) return;
 
   try {
     const res = await fetch(`/api/estoques/${id}/movimentar`, {
@@ -1576,7 +1801,7 @@ async function movimentarEstoque(id, tipoMovimento) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tipoMovimento,
-        quantidade: Number(qtdStr),
+        quantidade: qtd,
         usuarioUnitId: currentUser.unitId,
         usuarioRole: currentUser.role,
         usuarioNome: currentUser.name
@@ -1588,6 +1813,7 @@ async function movimentarEstoque(id, tipoMovimento) {
       return;
     }
     loadEstoquesData();
+    alert(`Movimentação de ${tipoMovimento} registrada com sucesso no estoque de "${est.item}"!`);
   } catch (err) {
     alert('Erro ao movimentar estoque.');
   }
@@ -1831,9 +2057,101 @@ async function loadDashboardData() {
     }
 
     renderCharts(data.porTipo, data.evolucaoMensal);
+
+    // Carregar e atualizar Card Específico de Transferência de Insumos no Dashboard
+    try {
+      const resInsumos = await fetch('/api/transferencias-insumos');
+      allTransferenciasInsumos = await resInsumos.json();
+      renderDashboardInsumosCard();
+    } catch (eInsumo) {
+      console.warn('Erro ao atualizar insumos no dash:', eInsumo);
+    }
   } catch (err) {
     console.error(err);
   }
+}
+
+function renderDashboardInsumosCard() {
+  const tbody = document.getElementById('dashInsumosTableBody');
+  if (!tbody) return;
+
+  const busca = (document.getElementById('dashInsumosBusca')?.value || '').toLowerCase().trim();
+  const filtroStatus = document.getElementById('dashInsumosFiltroStatus')?.value || 'ARQUIVADA';
+
+  // KPIs
+  const arquivadasList = allTransferenciasInsumos.filter(t => t.status === 'ARQUIVADA' || t.status === 'RECEBIDA');
+  const enviadasList = allTransferenciasInsumos.filter(t => t.status === 'ENVIADA');
+  const confirmadasList = allTransferenciasInsumos.filter(t => t.status === 'CONFIRMADA' || t.status === 'APROVADA');
+
+  const totalVolumeArquivado = arquivadasList.reduce((acc, t) => acc + (Number(t.volumeAprovado || t.volumeSolicitado) || 0), 0);
+
+  const kpiArq = document.getElementById('dashKpiTransfArquivadas');
+  const kpiVol = document.getElementById('dashKpiVolumeArquivado');
+  const kpiPend = document.getElementById('dashKpiTransfPendentes');
+  const kpiConf = document.getElementById('dashKpiTransfConfirmadas');
+
+  if (kpiArq) kpiArq.textContent = arquivadasList.length;
+  if (kpiVol) kpiVol.textContent = Number(totalVolumeArquivado).toLocaleString('pt-BR');
+  if (kpiPend) kpiPend.textContent = enviadasList.length;
+  if (kpiConf) kpiConf.textContent = confirmadasList.length;
+
+  let filtradas = allTransferenciasInsumos.slice();
+
+  if (filtroStatus === 'ARQUIVADA') {
+    filtradas = filtradas.filter(t => t.status === 'ARQUIVADA' || t.status === 'RECEBIDA');
+  } else if (filtroStatus === 'ENVIADA') {
+    filtradas = filtradas.filter(t => t.status === 'ENVIADA');
+  }
+
+  if (busca) {
+    filtradas = filtradas.filter(t => 
+      (t.numero && t.numero.toLowerCase().includes(busca)) ||
+      (t.material && t.material.toLowerCase().includes(busca)) ||
+      (t.remetenteUnitNome && t.remetenteUnitNome.toLowerCase().includes(busca)) ||
+      (t.solicitanteUnitNome && t.solicitanteUnitNome.toLowerCase().includes(busca)) ||
+      (t.dadosEnvio?.motorista && t.dadosEnvio.motorista.toLowerCase().includes(busca)) ||
+      (t.dadosEnvio?.numeroNF && t.dadosEnvio.numeroNF.toLowerCase().includes(busca))
+    );
+  }
+
+  if (filtradas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-gray-500 text-xs">Nenhuma transferência de insumo localizada para este filtro.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtradas.map(t => {
+    let statusBadge = '';
+    if (t.status === 'ARQUIVADA' || t.status === 'RECEBIDA') {
+      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">ARQUIVADA</span>`;
+    } else if (t.status === 'ENVIADA') {
+      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">EM TRÂNSITO</span>`;
+    } else if (t.status === 'CONFIRMADA' || t.status === 'APROVADA') {
+      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">CONFIRMADA</span>`;
+    } else if (t.status === 'PENDENTE') {
+      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300">PENDENTE</span>`;
+    } else {
+      statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-500/20 text-gray-300">${t.status}</span>`;
+    }
+
+    const docs = (t.documentos || []).map(d => `<span class="inline-block text-[10px] text-blue-400 font-semibold underline mr-1" title="${d.nome}">[${d.tipo}]</span>`).join('') || '<span class="text-gray-500 text-[11px]">-</span>';
+
+    return `
+      <tr class="hover:bg-[#121915] transition-colors border-b border-[#141d18]">
+        <td class="py-2.5 px-3 font-mono font-bold text-white">${t.numero}</td>
+        <td class="py-2.5 px-3 text-white font-medium">${t.remetenteUnitNome}</td>
+        <td class="py-2.5 px-3 text-white font-medium">${t.solicitanteUnitNome}</td>
+        <td class="py-2.5 px-3 font-bold text-emerald-400">${t.material}</td>
+        <td class="py-2.5 px-3 text-right font-bold text-white">${t.volumeAprovado || t.volumeSolicitado} ${t.unidadeMedida}</td>
+        <td class="py-2.5 px-3 text-gray-300 text-[11px]">${t.dadosEnvio ? `${t.dadosEnvio.motorista || '-'} ${t.dadosEnvio.numeroNF ? '(NF: '+t.dadosEnvio.numeroNF+')' : ''}` : '-'}</td>
+        <td class="py-2.5 px-3 text-gray-400 text-[11px]">
+          <div>Env: ${t.dadosEnvio?.dataEnvio || t.dataPrevisaoEnvio || '-'}</div>
+          <div>Rec: ${t.dadosRecebimento?.dataRecebimento || '-'}</div>
+        </td>
+        <td class="py-2.5 px-3">${statusBadge}</td>
+        <td class="py-2.5 px-3">${docs}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function clearDashboardFilters() {
@@ -2061,6 +2379,18 @@ async function handleSalvarConfigUser(e) {
     if (cb && cb.checked) modulos.push(m);
   });
 
+  const un = allUnits.find(u => u.id === unitId);
+  const unNome = un ? un.name : 'Nenhuma (Acesso Geral)';
+  const conf = confirm(
+    `CONFIRMAÇÃO DE ALTERAÇÃO DE PERMISSÕES DO USUÁRIO:\n\n` +
+    `Deseja realmente atualizar o perfil e permissões de "${name}"?\n\n` +
+    `• Novo Cargo: ${role.toUpperCase()}\n` +
+    `• Unidade Vinculada: ${unNome}\n` +
+    `• Módulos Liberados: ${modulos.length > 0 ? modulos.join(', ') : 'Nenhum'}\n\n` +
+    `Clique em 'OK' para confirmar ou 'Cancelar' para desistir.`
+  );
+  if (!conf) return;
+
   try {
     const res = await fetch(`/api/users/${id}`, {
       method: 'PUT',
@@ -2078,10 +2408,18 @@ async function handleSalvarConfigUser(e) {
 }
 
 async function deleteUser(id) {
-  if (!confirm('Deseja realmente remover este usuário?')) return;
+  const conf = confirm(
+    `ATENÇÃO - CONFIRMAÇÃO DE EXCLUSÃO DE USUÁRIO:\n\n` +
+    `Tem certeza absoluta de que deseja EXCLUIR permanentemente este usuário do sistema?\n\n` +
+    `O usuário perderá imediatamente todo o acesso à plataforma.\n\n` +
+    `Clique em 'OK' para excluir ou 'Cancelar' para manter o usuário.`
+  );
+  if (!conf) return;
+
   try {
     await fetch(`/api/users/${id}`, { method: 'DELETE' });
     loadAdminData();
+    alert('Usuário removido com sucesso!');
   } catch (err) {
     alert('Erro ao excluir usuário.');
   }
@@ -2126,6 +2464,21 @@ async function handleSaveUnit(e) {
   const code = document.getElementById('modalUnitCode').value;
   const capacity = document.getElementById('modalUnitCapacity').value;
 
+  if (id) {
+    const unAtual = allUnits.find(u => u.id === id);
+    const nomeAntigo = unAtual ? unAtual.name : name;
+    const conf = confirm(
+      `CONFIRMAÇÃO DE EDIÇÃO DE UNIDADE:\n\n` +
+      `Deseja realmente salvar as alterações na unidade "${nomeAntigo}"?\n\n` +
+      `• Nome: ${name}\n` +
+      `• Tipo: ${type}\n` +
+      `• Código: ${code || 'N/A'}\n` +
+      `• Capacidade: ${capacity || 0} cabeças\n\n` +
+      `Clique em 'OK' para salvar ou 'Cancelar' para desistir.`
+    );
+    if (!conf) return;
+  }
+
   const endpoint = id ? `/api/units/${id}` : '/api/units';
   const method = id ? 'PUT' : 'POST';
 
@@ -2146,7 +2499,15 @@ async function handleSaveUnit(e) {
 }
 
 async function excluirUnidade(id) {
-  if (!confirm('Deseja realmente remover esta unidade?')) return;
+  const un = allUnits.find(u => u.id === id);
+  const conf = confirm(
+    `ATENÇÃO CRÍTICA - CONFIRMAÇÃO DE EXCLUSÃO DE UNIDADE:\n\n` +
+    `Tem certeza absoluta de que deseja EXCLUIR a unidade "${un ? un.name : 'esta unidade'}"?\n\n` +
+    `AVISO: A exclusão de uma unidade impacta estoques, lotes e usuários vinculados a ela.\n\n` +
+    `Clique em 'OK' para confirmar a exclusão ou 'Cancelar' para manter a unidade.`
+  );
+  if (!conf) return;
+
   try {
     const res = await fetch(`/api/units/${id}`, { method: 'DELETE' });
     if (res.ok) {

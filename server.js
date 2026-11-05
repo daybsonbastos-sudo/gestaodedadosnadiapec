@@ -698,7 +698,7 @@ app.post('/api/transferencias-insumos/:id/responder', (req, res) => {
     if (!dataPrevisaoEnvio || !volumeAprovado) {
       return res.status(400).json({ error: 'Ao aceitar, confirme a data prevista para envio e o volume aprovado.' });
     }
-    sol.status = 'APROVADA';
+    sol.status = 'CONFIRMADA';
     sol.volumeAprovado = Number(volumeAprovado);
     sol.dataPrevisaoEnvio = dataPrevisaoEnvio;
     sol.respondidoPor = usuarioNome;
@@ -806,7 +806,7 @@ app.post('/api/transferencias-insumos/:id/receber', (req, res) => {
     estDestinatario.updatedAt = new Date().toISOString();
   }
 
-  sol.status = 'RECEBIDA';
+  sol.status = 'ARQUIVADA';
   sol.dadosRecebimento = {
     dataRecebimento: new Date().toISOString().split('T')[0],
     recebidoPor: usuarioNome
@@ -815,7 +815,7 @@ app.post('/api/transferencias-insumos/:id/receber', (req, res) => {
   saveDb(db);
   res.json({
     success: true,
-    message: `Recebimento confirmado! Saldo de ${volumeRecebido} ${sol.unidadeMedida} incorporado ao estoque da sua unidade.`,
+    message: `Recebimento confirmado! Saldo de ${volumeRecebido} ${sol.unidadeMedida} incorporado ao estoque da sua unidade. Transferência arquivada com sucesso.`,
     solicitacao: sol
   });
 });
