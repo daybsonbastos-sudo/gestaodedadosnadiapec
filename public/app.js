@@ -607,12 +607,218 @@ function renderAlertasEmbarqueInicio() {
 // -------------------------------------------------------------
 // VIEW 2: REBANHO (Tabela Modelo Relatório _reb_)
 // -------------------------------------------------------------
+let rebanhoSortCol = 'baia';
+let rebanhoSortAsc = true;
+let rebanhoQuickFilter = 'TODOS'; // 'TODOS' | 'PRONTOS' | 'ENTRADA' | 'SAIDA'
+
+function isBaiaPronta(b) {
+  if (!b || !b.qtdAnimais || Number(b.qtdAnimais) <= 0) return false;
+  const pesoHoje = Number(b.pesoEstimadoHoje) || 0;
+  const pesoPrev = Number(b.pesoAbatePrev) || 0;
+  const dias = Number(b.diasConfin) || 0;
+  return (pesoPrev > 0 && pesoHoje >= pesoPrev) || dias >= 90;
+}
+
+function isBaiaEntrada(b) {
+  if (!b || !b.qtdAnimais || Number(b.qtdAnimais) <= 0) return false;
+  const dieta = String(b.dieta || '').toUpperCase();
+  const dias = Number(b.diasConfin) || 0;
+  const obs = String(b.obs || '').toLowerCase();
+  return dieta.includes('ADAP') || dieta.includes('TRANS') || dias <= 30 || obs.includes('recepção') || obs.includes('entrada');
+}
+
+function isBaiaSaida(b) {
+  if (!b || !b.qtdAnimais || Number(b.qtdAnimais) <= 0) return false;
+  const obs = String(b.obs || '').toLowerCase();
+  const dtEmb = b.dataEstimadaEmbarque;
+  return isBaiaPronta(b) || Boolean(dtEmb) || obs.includes('abate') || obs.includes('embarq') || obs.includes('refugo');
+}
+
+function sortRebanhoBy(col) {
+  if (rebanhoSortCol === col) {
+    rebanhoSortAsc = !rebanhoSortAsc;
+  } else {
+    rebanhoSortCol = col;
+    rebanhoSortAsc = true;
+  }
+  applyRebanhoFilters();
+}
+
+function setRebanhoQuickFilter(filter) {
+  rebanhoQuickFilter = filter;
+  applyRebanhoFilters();
+}
+
+function clearRebanhoFilters() {
+  const searchInput = document.getElementById('rebanhoSearch');
+  if (searchInput) searchInput.value = '';
+  const selBaia = document.getElementById('rebanhoBaiaSelect');
+  if (selBaia) selBaia.value = 'TODAS';
+  rebanhoQuickFilter = 'TODOS';
+  rebanhoSortCol = 'baia';
+  rebanhoSortAsc = true;
+  applyRebanhoFilters();
+}
+
+function populateRebanhoBaiaSelect() {
+  const sel = document.getElementById('rebanhoBaiaSelect');
+  if (!sel) return;
+  const currentVal = sel.value;
+  const baiasUnicas = [...new Set(rebanhoData.map(b => b.baia).filter(Boolean))].sort((a, b) => {
+    const numA = parseInt(a, 10);
+    const numB = parseInt(b, 10);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    if (!isNaN(numA)) return -1;
+    if (!isNaN(numB)) return 1;
+    return String(a).localeCompare(String(b), undefined, { numeric: true });
+  });
+
+  sel.innerHTML = '<option value="TODAS" class="bg-[#111814] text-white">Todas as Baias (' + baiasUnicas.length + ')</option>' +
+    baiasUnicas.map(b => {
+      const item = rebanhoData.find(x => x.baia === b);
+      const qtd = item ? (item.qtdAnimais || 0) : 0;
+      return `<option value="${b}" class="bg-[#111814] text-white">Baia ${b} (${qtd} cab)</option>`;
+    }).join('');
+
+  if (currentVal && (currentVal === 'TODAS' || baiasUnicas.includes(currentVal))) {
+    sel.value = currentVal;
+  }
+}
+
+function applyRebanhoFilters() {
+  const searchInput = document.getElementById('rebanhoSearch');
+  const q = searchInput ? (searchInput.value || '').trim().toLowerCase() : '';
+  const selBaia = document.getElementById('rebanhoBaiaSelect');
+  const baiaFiltro = selBaia ? selBaia.value : 'TODAS';
+
+  // 1. Atualizar estilos dos botões de filtro rápido
+  const quickBtns = [
+    { id: 'btnFiltroRebanhoTodos', key: 'TODOS' },
+    { id: 'btnFiltroRebanhoProntos', key: 'PRONTOS' },
+    { id: 'btnFiltroRebanhoEntrada', key: 'ENTRADA' },
+    { id: 'btnFiltroRebanhoSaida', key: 'SAIDA' }
+  ];
+
+  quickBtns.forEach(btnInfo => {
+    const btn = document.getElementById(btnInfo.id);
+    if (!btn) return;
+    if (rebanhoQuickFilter === btnInfo.key) {
+      btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-black shadow-md transition flex items-center gap-1.5';
+    } else {
+      btn.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#16211a] border border-[#233128] text-gray-300 hover:text-white hover:bg-[#1d2c22] transition flex items-center gap-1.5';
+    }
+  });
+
+  // Atualizar contadores
+  const countTodos = rebanhoData.length;
+  const countProntos = rebanhoData.filter(isBaiaPronta).length;
+  const countEntrada = rebanhoData.filter(isBaiaEntrada).length;
+  const countSaida = rebanhoData.filter(isBaiaSaida).length;
+
+  const elTodos = document.getElementById('countRebanhoTodos');
+  if (elTodos) elTodos.textContent = countTodos;
+  const elProntos = document.getElementById('countRebanhoProntos');
+  if (elProntos) elProntos.textContent = countProntos;
+  const elEntrada = document.getElementById('countRebanhoEntrada');
+  if (elEntrada) elEntrada.textContent = countEntrada;
+  const elSaida = document.getElementById('countRebanhoSaida');
+  if (elSaida) elSaida.textContent = countSaida;
+
+  // 2. Filtrar
+  let filtered = rebanhoData.filter(b => {
+    // Filtro rápido
+    if (rebanhoQuickFilter === 'PRONTOS' && !isBaiaPronta(b)) return false;
+    if (rebanhoQuickFilter === 'ENTRADA' && !isBaiaEntrada(b)) return false;
+    if (rebanhoQuickFilter === 'SAIDA' && !isBaiaSaida(b)) return false;
+
+    // Filtro por baia específica
+    if (baiaFiltro && baiaFiltro !== 'TODAS' && b.baia !== baiaFiltro) return false;
+
+    // Busca textual por Lote, Raça, Baia, Categoria, Dieta
+    if (q) {
+      const matchLote = String(b.lote || '').toLowerCase().includes(q);
+      const matchRaca = String(b.raca || '').toLowerCase().includes(q);
+      const matchBaia = String(b.baia || '').toLowerCase().includes(q);
+      const matchCat = String(b.categoria || '').toLowerCase().includes(q);
+      const matchDieta = String(b.dieta || '').toLowerCase().includes(q);
+      const matchObs = String(b.obs || '').toLowerCase().includes(q);
+      if (!matchLote && !matchRaca && !matchBaia && !matchCat && !matchDieta && !matchObs) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // 3. Ordenar
+  filtered.sort((a, b) => {
+    let valA = a[rebanhoSortCol];
+    let valB = b[rebanhoSortCol];
+
+    if (rebanhoSortCol === 'baia') {
+      const numA = parseInt(valA, 10);
+      const numB = parseInt(valB, 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return rebanhoSortAsc ? (numA - numB) : (numB - numA);
+      }
+      if (!isNaN(numA)) return rebanhoSortAsc ? -1 : 1;
+      if (!isNaN(numB)) return rebanhoSortAsc ? 1 : -1;
+      return rebanhoSortAsc ? String(valA || '').localeCompare(String(valB || ''), undefined, { numeric: true }) : String(valB || '').localeCompare(String(valA || ''), undefined, { numeric: true });
+    }
+
+    const numericCols = ['qtdAnimais', 'pesoEntrada', 'diasConfin', 'gpd', 'pesoAbatePrev', 'pesoEstimadoHoje'];
+    if (numericCols.includes(rebanhoSortCol)) {
+      const nA = Number(valA) || 0;
+      const nB = Number(valB) || 0;
+      return rebanhoSortAsc ? (nA - nB) : (nB - nA);
+    }
+
+    const strA = String(valA || '').toLowerCase();
+    const strB = String(valB || '').toLowerCase();
+    return rebanhoSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+  });
+
+  // 4. Atualizar ícones de ordenação nas colunas
+  const sortColumns = [
+    'baia', 'lote', 'raca', 'categoria', 'qtdAnimais',
+    'dataEntrada', 'pesoEntrada', 'dieta', 'diasConfin',
+    'gpd', 'pesoAbatePrev', 'pesoEstimadoHoje', 'dataEstimadaEmbarque'
+  ];
+
+  sortColumns.forEach(col => {
+    const icon = document.getElementById('sortIcon-' + col);
+    if (!icon) return;
+    if (col === rebanhoSortCol) {
+      icon.textContent = rebanhoSortAsc ? '▲' : '▼';
+      icon.className = 'text-emerald-400 font-bold';
+    } else {
+      icon.textContent = '↕';
+      icon.className = 'text-gray-500 font-normal';
+    }
+  });
+
+  // 5. Atualizar resumo
+  const totalAnimaisFiltrados = filtered.reduce((acc, b) => acc + (Number(b.qtdAnimais) || 0), 0);
+  const elTotalAnimais = document.getElementById('rebanhoTotalFiltradoAnimais');
+  if (elTotalAnimais) elTotalAnimais.textContent = totalAnimaisFiltrados.toLocaleString('pt-BR');
+  const elTotalBaias = document.getElementById('rebanhoTotalFiltradoBaias');
+  if (elTotalBaias) elTotalBaias.textContent = filtered.length;
+
+  renderRebanhoTable(filtered);
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function filterRebanhoTable() {
+  applyRebanhoFilters();
+}
+
 async function loadRebanhoData() {
   try {
     const res = await fetch('/api/rebanho');
     const data = await res.json();
     rebanhoData = data.baias || [];
-    renderRebanhoTable(rebanhoData);
+    populateRebanhoBaiaSelect();
+    applyRebanhoFilters();
   } catch (err) {
     console.error(err);
   }
@@ -655,18 +861,6 @@ function renderRebanhoTable(list) {
       </tr>
     `;
   }).join('');
-}
-
-function filterRebanhoTable() {
-  const q = (document.getElementById('rebanhoSearch').value || '').toLowerCase();
-  const filtered = rebanhoData.filter(b => {
-    return (b.baia && b.baia.toLowerCase().includes(q)) ||
-           (b.lote && b.lote.toLowerCase().includes(q)) ||
-           (b.raca && b.raca.toLowerCase().includes(q)) ||
-           (b.categoria && b.categoria.toLowerCase().includes(q)) ||
-           (b.dieta && b.dieta.toLowerCase().includes(q));
-  });
-  renderRebanhoTable(filtered);
 }
 
 function exportRebanhoPDF() {

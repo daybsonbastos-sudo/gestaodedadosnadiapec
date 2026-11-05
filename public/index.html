@@ -341,8 +341,6 @@
         </div>
         
         <div class="flex flex-wrap items-center gap-2">
-          <input type="text" id="rebanhoSearch" oninput="filterRebanhoTable()" placeholder="Buscar baia, lote, raça..." class="bg-[#111814] border border-[#1e2a22] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 w-44">
-          
           <!-- Botão Atualizar Relatório com Upload Integrado -->
           <button id="btnAtualizarRelatorioRebanho" onclick="openAtualizarRelatorioModal()" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
             <i data-lucide="refresh-cw" class="w-4 h-4"></i> Atualizar Relatório
@@ -357,24 +355,105 @@
         </div>
       </div>
 
+      <!-- PAINEL DE FILTROS DO REBANHO -->
+      <div class="bg-[#111814] border border-[#1e2a22] p-4 rounded-2xl space-y-3.5 shadow-lg">
+        <!-- Linha 1: Clicáveis para filtrar movimentações e status -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btnFiltroRebanhoTodos" onclick="setRebanhoQuickFilter('TODOS')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-black shadow-md transition flex items-center gap-1.5">
+              <span>Todas as Baias</span>
+              <span id="countRebanhoTodos" class="px-1.5 py-0.5 rounded-md bg-black/20 text-[10px]">0</span>
+            </button>
+            <button id="btnFiltroRebanhoProntos" onclick="setRebanhoQuickFilter('PRONTOS')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#16211a] border border-[#233128] text-amber-400 hover:bg-[#1d2c22] transition flex items-center gap-1.5">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+              <span>Animais Prontos</span>
+              <span id="countRebanhoProntos" class="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-[10px]">0</span>
+            </button>
+            <button id="btnFiltroRebanhoEntrada" onclick="setRebanhoQuickFilter('ENTRADA')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#16211a] border border-[#233128] text-blue-400 hover:bg-[#1d2c22] transition flex items-center gap-1.5">
+              <i data-lucide="arrow-down-left" class="w-3.5 h-3.5"></i>
+              <span>Movimentações de Entrada</span>
+              <span id="countRebanhoEntrada" class="px-1.5 py-0.5 rounded-md bg-blue-500/20 text-[10px]">0</span>
+            </button>
+            <button id="btnFiltroRebanhoSaida" onclick="setRebanhoQuickFilter('SAIDA')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#16211a] border border-[#233128] text-purple-400 hover:bg-[#1d2c22] transition flex items-center gap-1.5">
+              <i data-lucide="truck" class="w-3.5 h-3.5"></i>
+              <span>Movimentações de Saída</span>
+              <span id="countRebanhoSaida" class="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-[10px]">0</span>
+            </button>
+          </div>
+
+          <div class="text-xs text-gray-400 font-medium bg-[#0b100d] border border-[#1b2520] px-3 py-1.5 rounded-xl flex items-center gap-2">
+            <span>Exibindo:</span>
+            <span id="rebanhoTotalFiltradoAnimais" class="text-emerald-400 font-bold">0</span> cabeças em
+            <span id="rebanhoTotalFiltradoBaias" class="text-white font-bold">0</span> currais
+          </div>
+        </div>
+
+        <!-- Linha 2: Busca por Lote ou Raça + Dropdown por Baia -->
+        <div class="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-[#18231c]">
+          <div class="relative flex-1 min-w-[240px]">
+            <i data-lucide="search" class="w-4 h-4 text-gray-500 absolute left-3 top-2.5"></i>
+            <input type="text" id="rebanhoSearch" oninput="applyRebanhoFilters()" placeholder="Buscar por Lote ou Raça (ex: 79, NE, CR, Fêmea)..." class="w-full bg-[#0b100d] border border-[#1e2a22] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition">
+          </div>
+
+          <!-- Dropdown para filtrar por Baia -->
+          <div class="flex items-center gap-1.5 bg-[#0b100d] border border-[#1e2a22] rounded-xl px-2.5 py-1">
+            <i data-lucide="grid" class="w-3.5 h-3.5 text-gray-400"></i>
+            <select id="rebanhoBaiaSelect" onchange="applyRebanhoFilters()" class="bg-transparent text-xs text-white focus:outline-none py-1 pr-2 cursor-pointer font-medium">
+              <option value="TODAS" class="bg-[#111814] text-white">Todas as Baias</option>
+            </select>
+          </div>
+
+          <!-- Botão Resetar Filtros -->
+          <button onclick="clearRebanhoFilters()" title="Limpar Filtros" class="px-3 py-2 bg-[#16211a] hover:bg-[#1d2c22] border border-[#233128] rounded-xl text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Limpar
+          </button>
+        </div>
+      </div>
+
       <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl overflow-hidden shadow-xl">
         <div class="overflow-x-auto custom-scrollbar">
           <table class="w-full text-left text-xs border-collapse">
             <thead class="bg-[#121a15] text-gray-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#1f2b23]">
               <tr>
-                <th class="py-3 px-3">Baia</th>
-                <th class="py-3 px-3">Lote</th>
-                <th class="py-3 px-3">Raça</th>
-                <th class="py-3 px-3">Categoria</th>
-                <th class="py-3 px-3 text-right">Nº Animais</th>
-                <th class="py-3 px-3">Dt Entrada</th>
-                <th class="py-3 px-3 text-right">Peso Entr</th>
-                <th class="py-3 px-3">Dieta</th>
-                <th class="py-3 px-3 text-right">Dias Confin</th>
-                <th class="py-3 px-3 text-right">GPD</th>
-                <th class="py-3 px-3 text-right">Peso Prev</th>
-                <th class="py-3 px-3 text-right">Peso Hoje</th>
-                <th class="py-3 px-3">Previsão Embarque</th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('baia')">
+                  <div class="flex items-center gap-1">Baia <span id="sortIcon-baia" class="text-emerald-400 font-bold">▲</span></div>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('lote')">
+                  <div class="flex items-center gap-1">Lote <span id="sortIcon-lote" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('raca')">
+                  <div class="flex items-center gap-1">Raça <span id="sortIcon-raca" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('categoria')">
+                  <div class="flex items-center gap-1">Categoria <span id="sortIcon-categoria" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('qtdAnimais')">
+                  <div class="flex items-center justify-end gap-1">Nº Animais <span id="sortIcon-qtdAnimais" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('dataEntrada')">
+                  <div class="flex items-center gap-1">Dt Entrada <span id="sortIcon-dataEntrada" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('pesoEntrada')">
+                  <div class="flex items-center justify-end gap-1">Peso Entr <span id="sortIcon-pesoEntrada" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('dieta')">
+                  <div class="flex items-center gap-1">Dieta <span id="sortIcon-dieta" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('diasConfin')">
+                  <div class="flex items-center justify-end gap-1">Dias Confin <span id="sortIcon-diasConfin" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('gpd')">
+                  <div class="flex items-center justify-end gap-1">GPD <span id="sortIcon-gpd" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('pesoAbatePrev')">
+                  <div class="flex items-center justify-end gap-1">Peso Prev <span id="sortIcon-pesoAbatePrev" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('pesoEstimadoHoje')">
+                  <div class="flex items-center justify-end gap-1">Peso Hoje <span id="sortIcon-pesoEstimadoHoje" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('dataEstimadaEmbarque')">
+                  <div class="flex items-center gap-1">Previsão Embarque <span id="sortIcon-dataEstimadaEmbarque" class="text-gray-500">↕</span></div>
+                </th>
                 <th class="py-3 px-3">Lotação (m²)</th>
                 <th class="py-3 px-3">Obs</th>
               </tr>
