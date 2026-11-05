@@ -1702,7 +1702,7 @@ app.get('/api/dashboard/movimentacoes', async (req, res) => {
   let movs = [];
   if (isSupabaseConfigured && supabaseAdmin) {
     try {
-      let q = supabaseAdmin.from('movimentacoes').select('*');
+      let q = supabaseAdmin.from('movimentacoes').select('*').order('data', { ascending: false });
       if (dataInicio) q = q.gte('data', dataInicio);
       if (dataFim) q = q.lte('data', dataFim);
       const { data, error } = await q;
@@ -1717,12 +1717,15 @@ app.get('/api/dashboard/movimentacoes', async (req, res) => {
           categoria: m.categoria,
           peso: m.peso,
           precoArroba: m.preco_arroba,
+          valorCabeca: m.valor_cabeca,
           valorTotal: m.valor_total,
           origemDestino: m.origem_destino,
           obs: m.obs
         }));
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Erro ao ler movimentacoes do Supabase:', e.message);
+    }
   }
 
   if (movs.length === 0) {
@@ -1732,9 +1735,40 @@ app.get('/api/dashboard/movimentacoes', async (req, res) => {
     if (dataFim) movs = movs.filter(m => m.data <= dataFim);
   }
 
-  if (tipo) movs = movs.filter(m => (m.tipo || '').toLowerCase().includes(tipo.toLowerCase()));
-  if (baia) movs = movs.filter(m => String(m.baia || '').toLowerCase().includes(baia.toLowerCase()));
-  if (categoria) movs = movs.filter(m => String(m.categoria || '').toLowerCase().includes(categoria.toLowerCase()));
+  const norm = str => String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+  // Filtro por Tipo (normalizado contra acentos)
+  if (tipo) {
+    const targetTipo = norm(tipo);
+    movs = movs.filter(m => norm(m.tipo).includes(targetTipo));
+  }
+
+  // Filtro inteligente por Baia
+  if (baia) {
+    const bTerm = norm(baia);
+    const bNum = parseInt(baia, 10);
+    movs = movs.filter(m => {
+      const mb = norm(m.baia);
+      const od = norm(m.origemDestino);
+      const obs = norm(m.obs);
+      if (mb.includes(bTerm) || od.includes(bTerm) || obs.includes(bTerm)) return true;
+      if (!isNaN(bNum)) {
+        if (parseInt(m.baia, 10) === bNum) return true;
+        const regex = new RegExp(`(?:b[-_]|baia\\s*)0*${bNum}(?:\\b|[^0-9])`, 'i');
+        if (regex.test(od) || regex.test(obs) || regex.test(mb)) return true;
+      }
+      return false;
+    });
+  }
+
+  // Filtro por Categoria
+  if (categoria) {
+    const targetCat = norm(categoria);
+    movs = movs.filter(m => norm(m.categoria).includes(targetCat));
+  }
+
+  // Ordenar por data decrescente
+  movs.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
 
   const porTipo = {};
   const porMes = {};
@@ -1742,13 +1776,15 @@ app.get('/api/dashboard/movimentacoes', async (req, res) => {
   let valorTotalGeral = 0;
 
   movs.forEach(m => {
-    porTipo[m.tipo] = (porTipo[m.tipo] || 0) + (m.quantidade || 0);
+    const t = m.tipo || 'OUTROS';
+    porTipo[t] = (porTipo[t] || 0) + (m.quantidade || 0);
     const mes = m.data ? m.data.substring(0, 7) : 'Sem data';
     if (!porMes[mes]) porMes[mes] = { mes, entradas: 0, saidas: 0, mortes: 0 };
 
-    if (m.tipo.includes('ENTRADA')) porMes[mes].entradas += (m.quantidade || 0);
-    else if (m.tipo.includes('VENDA') || m.tipo.includes('ABATE') || m.tipo.includes('SAÍDA')) porMes[mes].saidas += (m.quantidade || 0);
-    else if (m.tipo.includes('MORTE')) porMes[mes].mortes += (m.quantidade || 0);
+    const tNorm = norm(t);
+    if (tNorm.includes('entrada')) porMes[mes].entradas += (m.quantidade || 0);
+    else if (tNorm.includes('venda') || tNorm.includes('abate') || tNorm.includes('saida')) porMes[mes].saidas += (m.quantidade || 0);
+    else if (tNorm.includes('morte')) porMes[mes].mortes += (m.quantidade || 0);
 
     totalCabecas += (m.quantidade || 0);
     valorTotalGeral += (m.valorTotal || 0);
@@ -1767,15 +1803,27 @@ app.get('/api/dashboard/movimentacoes', async (req, res) => {
 // -------------------------------------------------------------
 // 8. EXPORTAÇÕES (EXCEL XLSX)
 // -------------------------------------------------------------
-app.get('/api/export/excel', (req, res) => {
+app.get('/api/export/excel', async (req, res) => {
   const { tipo, dataInicio, dataFim } = req.query;
-  const db = getDb();
   const wb = XLSX.utils.book_new();
 
   if (tipo === 'movimentacoes') {
-    let movs = db.movimentacoes || [];
-    if (dataInicio) movs = movs.filter(m => m.data >= dataInicio);
-    if (dataFim) movs = movs.filter(m => m.data <= dataFim);
+    let movs = [];
+    if (isSupabaseConfigured && supabaseAdmin) {
+      try {
+        let q = supabaseAdmin.from('movimentacoes').select('*').order('data', { ascending: false });
+        if (dataInicio) q = q.gte('data', dataInicio);
+        if (dataFim) q = q.lte('data', dataFim);
+        const { data } = await q;
+        if (data && data.length > 0) movs = data;
+      } catch (e) {}
+    }
+    if (movs.length === 0) {
+      const db = getDb();
+      movs = db.movimentacoes || [];
+      if (dataInicio) movs = movs.filter(m => m.data >= dataInicio);
+      if (dataFim) movs = movs.filter(m => m.data <= dataFim);
+    }
 
     const dataRows = movs.map(m => ({
       'Lote': m.lote,
@@ -1785,16 +1833,28 @@ app.get('/api/export/excel', (req, res) => {
       'Quantidade (Cab)': m.quantidade,
       'Categoria': m.categoria,
       'Peso (kg)': m.peso,
-      'Preço R$/@': m.precoArroba,
-      'Valor Total (R$)': m.valorTotal,
-      'Origem / Destino': m.origemDestino,
+      'Preço R$/@': m.preco_arroba || m.precoArroba,
+      'Valor Total (R$)': m.valor_total || m.valorTotal,
+      'Origem / Destino': m.origem_destino || m.origemDestino,
       'Observações': m.obs
     }));
 
     const ws = XLSX.utils.json_to_sheet(dataRows);
     XLSX.utils.book_append_sheet(wb, ws, 'Movimentações');
   } else {
-    const dataRows = db.baias.map(b => ({
+    let baias = [];
+    if (isSupabaseConfigured && supabaseAdmin) {
+      try {
+        const { data } = await supabaseAdmin.from('baias').select('*');
+        if (data && data.length > 0) baias = data.map(rowToBaia);
+      } catch (e) {}
+    }
+    if (baias.length === 0) {
+      const db = getDb();
+      baias = db.baias || [];
+    }
+
+    const dataRows = baias.map(b => ({
       'Baia': b.baia,
       'Lote': b.lote,
       'Raça': b.raca,
