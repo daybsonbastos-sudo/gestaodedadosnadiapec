@@ -107,6 +107,7 @@ function applyUserPermissions() {
     'rebanho': document.getElementById('card-acc-rebanho'),
     'embarque': document.getElementById('card-acc-embarque'),
     'transferencia-insumos': document.getElementById('card-acc-insumos'),
+    'estoque': document.getElementById('card-acc-estoque'),
     'dashboard': document.getElementById('card-acc-dashboard')
   };
 
@@ -127,6 +128,13 @@ function applyUserPermissions() {
       else card.classList.add('hidden');
     }
   });
+
+  const cardMovGado = document.getElementById('card-acc-movimentacao-gado');
+  if (cardMovGado) {
+    const hasAccess = isSuperAdmin || userMods.includes('rebanho') || userMods.includes('estoque');
+    if (hasAccess) cardMovGado.classList.remove('hidden');
+    else cardMovGado.classList.add('hidden');
+  }
 
   navigateTo('inicio');
 }
@@ -380,6 +388,23 @@ async function loadInicioData() {
     if (cardInsumosSum) {
       const ativas = allTransferenciasInsumos.filter(t => t.status === 'PENDENTE' || t.status === 'CONFIRMADA' || t.status === 'APROVADA' || t.status === 'ENVIADA').length;
       cardInsumosSum.textContent = `${ativas} TRANSFERÊNCIAS ATIVAS`;
+    }
+
+    // Atualizar resumo do card de Movimentação de Gado
+    try {
+      const resGado = await fetch('/api/gado/saldo');
+      if (resGado.ok) {
+        const gado = await resGado.json();
+        const elCardGado = document.getElementById('cardMovGadoSummary');
+        if (elCardGado) {
+          const tot = Number(gado.totalVivos || 0).toLocaleString('pt-BR');
+          const m = Number(gado.totalMachos || gado.machos || 0).toLocaleString('pt-BR');
+          const f = Number(gado.totalFemeas || gado.femeas || 0).toLocaleString('pt-BR');
+          elCardGado.textContent = `${tot} ANIMAIS • ♂ ${m} • ♀ ${f}`;
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao atualizar card gado início:', e);
     }
 
     // Renderizar Notificações de Embarque e de Solicitações/Respostas de Insumos
