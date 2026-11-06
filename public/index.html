@@ -637,15 +637,20 @@
         <!-- Header e Botão de Ação -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">LIVRO DE AUDITORIA INDEPENDENTE</span>
+              <span class="text-xs text-gray-500">•</span>
+              <span class="text-xs text-gray-400 font-medium">Controle Manual Paralelo</span>
+            </div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2 mt-1">
               <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
-              Controle de Movimentação de Gado
+              Movimentação de Rebanho
             </h2>
-            <p class="text-xs text-gray-400 mt-0.5">Gestão de entradas (compra, transferência), saídas (venda, cantina, morte) e saldos por sexo</p>
+            <p class="text-xs text-gray-400 mt-0.5">Módulo de auditoria alimentado manualmente. Não impacta a planilha de rebanho e confronta divergências.</p>
           </div>
 
           <button onclick="openModalMovimentacaoGado()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-950 transition">
-            <i data-lucide="plus-circle" class="w-4 h-4"></i> Registrar Movimentação de Gado
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Registrar Movimentação
           </button>
         </div>
 
@@ -698,6 +703,43 @@
             </div>
             <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
               <i data-lucide="scale" class="w-6 h-6"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD DE CONFRONTO E AUDITORIA (NUTRON VS LIVRO MANUAL) -->
+        <div class="bg-gradient-to-r from-[#0d1620] via-[#0f1a26] to-[#0d1620] border border-sky-500/30 rounded-2xl p-4 shadow-xl">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                <i data-lucide="scale" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h4 class="text-xs font-bold text-white uppercase tracking-wider">Confronto de Auditoria</h4>
+                  <span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold border border-sky-500/30">Conciliação Nutron vs Livro Manual</span>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-0.5">Compara o saldo do relatório importado com as movimentações manuais auditadas</p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 text-xs">
+              <div class="bg-[#080e14] px-3.5 py-2 rounded-xl border border-[#162738]">
+                <span class="text-[10px] text-gray-400 block font-semibold">Relatório Importado (Nutron)</span>
+                <span id="confrontoSaldoNutron" class="text-sm font-bold text-sky-400">6.330 cab</span>
+              </div>
+
+              <div class="bg-[#080e14] px-3.5 py-2 rounded-xl border border-[#162738]">
+                <span class="text-[10px] text-gray-400 block font-semibold">Auditado (Movimentações)</span>
+                <span id="confrontoSaldoAuditado" class="text-sm font-bold text-emerald-400">6.330 cab</span>
+              </div>
+
+              <div class="bg-[#080e14] px-3.5 py-2 rounded-xl border border-[#162738]">
+                <span class="text-[10px] text-gray-400 block font-semibold">Status de Conciliação</span>
+                <span id="confrontoStatusBadge" class="text-sm font-bold text-emerald-400 flex items-center gap-1">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Conciliado (0)
+                </span>
+              </div>
             </div>
           </div>
         </div>

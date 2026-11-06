@@ -1824,33 +1824,30 @@ app.get('/api/dashboard/movimentacoes', async (req, res) => {
 // 7.1. MÓDULO DE MOVIMENTAÇÃO DE GADO (ESTOQUE DE ANIMAIS VIVOS)
 // -------------------------------------------------------------
 
-// Saldo consolidado de animais vivos, machos e fêmeas
+// Obter ou inicializar base de auditoria independente
+function getAuditoriaBase() {
+  const db = getDb();
+  if (!db.auditoriaGado) {
+    db.auditoriaGado = {
+      dataBase: '2026-10-28',
+      saldoBaseM: 5154,
+      saldoBaseF: 1176,
+      totalBase: 6330,
+      descricao: 'Saldo base inicial da auditoria de rebanho'
+    };
+    saveDb(db);
+  }
+  return db.auditoriaGado;
+}
+
+// Saldo consolidado de auditoria de animais vivos, machos e fêmeas (100% independente do relatório importado)
 app.get('/api/gado/saldo', async (req, res) => {
   try {
-    let baias = [];
-    if (isSupabaseConfigured && supabaseAdmin) {
-      const { data } = await supabaseAdmin.from('baias').select('categoria, qtd_animais');
-      if (data && data.length > 0) baias = data;
-    }
-    if (baias.length === 0) {
-      const db = getDb();
-      baias = db.baias || [];
-    }
+    const auditoriaBase = getAuditoriaBase();
+    let totalMachos = auditoriaBase.saldoBaseM || 0;
+    let totalFemeas = auditoriaBase.saldoBaseF || 0;
 
-    let totalMachos = 0;
-    let totalFemeas = 0;
-
-    baias.forEach(b => {
-      const cat = String(b.categoria || '').toLowerCase();
-      const qtd = Number(b.qtd_animais !== undefined ? b.qtd_animais : b.qtdAnimais) || 0;
-      if (cat.includes('femea') || cat.includes('fêmea') || cat.includes('novilha') || cat.includes('vaca')) {
-        totalFemeas += qtd;
-      } else {
-        totalMachos += qtd;
-      }
-    });
-
-    // Ajustar com as movimentações manuais inseridas
+    // Ajustar estritamente com as movimentações manuais inseridas pelo módulo de auditoria
     let movsGado = [];
     if (isSupabaseConfigured && supabaseAdmin) {
       const { data } = await supabaseAdmin.from('movimentacoes').select('tipo, categoria, quantidade, id').like('id', 'mov_gado_%');
@@ -1880,6 +1877,19 @@ app.get('/api/gado/saldo', async (req, res) => {
     const pctMachos = totalVivos > 0 ? Number(((totalMachos / totalVivos) * 100).toFixed(1)) : 0;
     const pctFemeas = totalVivos > 0 ? Number(((totalFemeas / totalVivos) * 100).toFixed(1)) : 0;
 
+    // Obter saldo do Relatório Importado (Baias) APENAS para confronto de auditoria
+    let baias = [];
+    if (isSupabaseConfigured && supabaseAdmin) {
+      const { data } = await supabaseAdmin.from('baias').select('qtd_animais');
+      if (data && data.length > 0) baias = data;
+    }
+    if (baias.length === 0) {
+      const db = getDb();
+      baias = db.baias || [];
+    }
+    const saldoRelatorioImportado = baias.reduce((acc, b) => acc + (Number(b.qtd_animais !== undefined ? b.qtd_animais : b.qtdAnimais) || 0), 0);
+    const diferencaConfronto = totalVivos - saldoRelatorioImportado;
+
     res.json({
       totalVivos,
       totalMachos,
@@ -1888,7 +1898,12 @@ app.get('/api/gado/saldo', async (req, res) => {
       femeas: totalFemeas,
       pctMachos,
       pctFemeas,
-      totalCurrais: baias.length
+      totalCurrais: baias.length,
+      saldoRelatorioImportado,
+      diferencaConfronto,
+      dataBaseAuditoria: auditoriaBase.dataBase,
+      saldoBaseM: auditoriaBase.saldoBaseM,
+      saldoBaseF: auditoriaBase.saldoBaseF
     });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao calcular saldo de gado: ' + err.message });

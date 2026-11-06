@@ -1883,6 +1883,33 @@ async function carregarGadoModulo() {
     const elPctFemeas = document.getElementById('kpiGadoPctFemeas');
     if (elPctFemeas) elPctFemeas.textContent = (saldo.pctFemeas || '0') + '% do rebanho';
 
+    // Atualizar Confronto de Auditoria (Nutron vs Livro Manual)
+    const elNutron = document.getElementById('confrontoSaldoNutron');
+    if (elNutron) {
+      const sNutron = Number(saldo.saldoRelatorioImportado || 0);
+      elNutron.textContent = sNutron.toLocaleString('pt-BR') + ' cab';
+    }
+
+    const elAudit = document.getElementById('confrontoSaldoAuditado');
+    if (elAudit) {
+      elAudit.textContent = Number(saldo.totalVivos || 0).toLocaleString('pt-BR') + ' cab';
+    }
+
+    const elBadge = document.getElementById('confrontoStatusBadge');
+    if (elBadge) {
+      const diff = Number(saldo.diferencaConfronto || 0);
+      if (diff === 0) {
+        elBadge.className = 'text-sm font-bold text-emerald-400 flex items-center gap-1';
+        elBadge.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Conciliado (0)`;
+      } else if (diff > 0) {
+        elBadge.className = 'text-sm font-bold text-amber-400 flex items-center gap-1';
+        elBadge.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> +${diff.toLocaleString('pt-BR')} cab (Sobra no Manual)`;
+      } else {
+        elBadge.className = 'text-sm font-bold text-red-400 flex items-center gap-1';
+        elBadge.innerHTML = `<i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> ${diff.toLocaleString('pt-BR')} cab (Falta no Manual)`;
+      }
+    }
+
     await carregarMovimentacoesGado();
   } catch (err) {
     console.error('Erro ao carregar módulo de gado:', err);
