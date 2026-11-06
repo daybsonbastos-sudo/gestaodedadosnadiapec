@@ -1843,14 +1843,17 @@ async function carregarGadoModulo() {
     const elTotal = document.getElementById('kpiGadoTotalVivos');
     if (elTotal) elTotal.textContent = Number(saldo.totalVivos || 0).toLocaleString('pt-BR');
 
+    const machos = Number(saldo.totalMachos !== undefined ? saldo.totalMachos : (saldo.machos || 0));
+    const femeas = Number(saldo.totalFemeas !== undefined ? saldo.totalFemeas : (saldo.femeas || 0));
+
     const elMachos = document.getElementById('kpiGadoMachos');
-    if (elMachos) elMachos.textContent = Number(saldo.machos || 0).toLocaleString('pt-BR');
+    if (elMachos) elMachos.textContent = machos.toLocaleString('pt-BR');
 
     const elPctMachos = document.getElementById('kpiGadoPctMachos');
     if (elPctMachos) elPctMachos.textContent = (saldo.pctMachos || '0') + '% do rebanho';
 
     const elFemeas = document.getElementById('kpiGadoFemeas');
-    if (elFemeas) elFemeas.textContent = Number(saldo.femeas || 0).toLocaleString('pt-BR');
+    if (elFemeas) elFemeas.textContent = femeas.toLocaleString('pt-BR');
 
     const elPctFemeas = document.getElementById('kpiGadoPctFemeas');
     if (elPctFemeas) elPctFemeas.textContent = (saldo.pctFemeas || '0') + '% do rebanho';

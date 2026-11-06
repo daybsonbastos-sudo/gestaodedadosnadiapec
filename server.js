@@ -1884,6 +1884,8 @@ app.get('/api/gado/saldo', async (req, res) => {
       totalVivos,
       totalMachos,
       totalFemeas,
+      machos: totalMachos,
+      femeas: totalFemeas,
       pctMachos,
       pctFemeas,
       totalCurrais: baias.length
