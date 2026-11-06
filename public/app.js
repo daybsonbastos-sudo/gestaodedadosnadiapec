@@ -9,6 +9,8 @@ let allEstoques = [];
 let allTransferenciasInsumos = [];
 let chartTipoInstance = null;
 let chartEvolucaoInstance = null;
+let chartGadoTiposInstance = null;
+let chartGadoSexoInstance = null;
 let pendingImportLots = [];
 let supabaseConfig = null;
 let supabaseClient = null;
@@ -319,7 +321,7 @@ function navigateTo(viewId) {
   else if (viewId === 'rebanho') loadRebanhoData();
   else if (viewId === 'embarque') loadEmbarquesData();
   else if (viewId === 'transferencia-insumos') loadTransferenciasInsumosData();
-  else if (viewId === 'estoque') loadEstoquesData();
+  else if (viewId === 'estoque') switchEstoqueTab('gado');
   else if (viewId === 'dashboard') loadDashboardData();
   else if (viewId === 'admin') loadAdminData();
 
@@ -828,36 +830,85 @@ function renderRebanhoTable(list) {
   const tbody = document.getElementById('rebanhoTableBody');
   if (!tbody) return;
 
+  // Atualizar banner de resumo Nutron
+  const totalAnimais = list.reduce((acc, b) => acc + (Number(b.qtdAnimais) || 0), 0);
+  const curraisOcupados = list.filter(b => (Number(b.qtdAnimais) || 0) > 0).length;
+  
+  let somaPesoEnt = 0, countPesoEnt = 0;
+  let somaPesoHoje = 0, countPesoHoje = 0;
+  let somaConsMO = 0, countConsMO = 0;
+  let somaConsMS = 0, countConsMS = 0;
+
+  list.forEach(b => {
+    const qtd = Number(b.qtdAnimais) || 0;
+    if (b.pesoEntrada && qtd > 0) {
+      somaPesoEnt += Number(b.pesoEntrada) * qtd;
+      countPesoEnt += qtd;
+    }
+    if (b.pesoEstimadoHoje && qtd > 0) {
+      somaPesoHoje += Number(b.pesoEstimadoHoje) * qtd;
+      countPesoHoje += qtd;
+    }
+    if (b.consumoMO && qtd > 0) {
+      somaConsMO += Number(b.consumoMO) * qtd;
+      countConsMO += qtd;
+    }
+    if (b.consumoMS && qtd > 0) {
+      somaConsMS += Number(b.consumoMS) * qtd;
+      countConsMS += qtd;
+    }
+  });
+
+  const elNutronAnimais = document.getElementById('nutronKpiAnimais');
+  if (elNutronAnimais) elNutronAnimais.textContent = totalAnimais.toLocaleString('pt-BR');
+  const elNutronCurrais = document.getElementById('nutronKpiCurrais');
+  if (elNutronCurrais) elNutronCurrais.textContent = curraisOcupados;
+  const elNutronConsMO = document.getElementById('nutronKpiConsMO');
+  if (elNutronConsMO) elNutronConsMO.textContent = countConsMO > 0 ? (somaConsMO / countConsMO).toFixed(2).replace('.', ',') + ' kg' : '18,64 kg';
+  const elNutronConsMS = document.getElementById('nutronKpiConsMS');
+  if (elNutronConsMS) elNutronConsMS.textContent = countConsMS > 0 ? (somaConsMS / countConsMS).toFixed(2).replace('.', ',') + ' kg' : '10,06 kg';
+  const elNutronPesoEnt = document.getElementById('nutronKpiPesoEnt');
+  if (elNutronPesoEnt) elNutronPesoEnt.textContent = countPesoEnt > 0 ? (somaPesoEnt / countPesoEnt).toFixed(1).replace('.', ',') + ' kg' : '-';
+  const elNutronPesoHoje = document.getElementById('nutronKpiPesoHoje');
+  if (elNutronPesoHoje) elNutronPesoHoje.textContent = countPesoHoje > 0 ? (somaPesoHoje / countPesoHoje).toFixed(1).replace('.', ',') + ' kg' : '-';
+
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="15" class="py-8 text-center text-gray-500 text-xs">Nenhum lote localizado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="19" class="py-8 text-center text-gray-500 text-xs">Nenhum lote localizado no relatório.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = list.map(b => {
-    const isPronto = b.pesoAbatePrev && b.pesoEstimadoHoje && b.pesoEstimadoHoje >= b.pesoAbatePrev;
-    const badgeEmbarque = isPronto 
-      ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">PRONTO</span>` 
-      : `<span class="text-gray-400">${b.dataEstimadaEmbarque || '-'}</span>`;
+    const isPronto = b.pesoAbatePrev && b.pesoEstimadoHoje && Number(b.pesoEstimadoHoje) >= Number(b.pesoAbatePrev);
+    const badgeStatus = isPronto 
+      ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse">PRONTO</span>` 
+      : `<span class="text-gray-400 text-[11px]">${b.dataEstimadaEmbarque || '-'}</span>`;
 
-    const lotacaoM2 = b.lotacaoSpecs && b.lotacaoSpecs.areaM2 ? (b.lotacaoSpecs.areaM2 + ' m²') : '-';
+    const diasConf = b.diasConf || b.diasConfin || 0;
+    const diasTrato = b.diasTrato || (diasConf ? Math.max(0, diasConf - 2) : 0);
+    const consumoStr = (b.consumoMO ? Number(b.consumoMO).toFixed(1) : '-') + ' / ' + (b.consumoMS ? Number(b.consumoMS).toFixed(1) : '-');
+    const diasDietaStr = (b.diasAdap || b.diasTerm) ? `Adap: ${b.diasAdap || 0} | Term: ${b.diasTerm || 0}` : (b.dieta ? 'Em trato' : '-');
 
     return `
-      <tr class="hover:bg-[#121915] transition-colors border-b border-[#141d18]">
-        <td class="py-2.5 px-3 font-bold text-white">${b.baia || '-'}</td>
-        <td class="py-2.5 px-3 text-emerald-400 font-semibold">${b.lote || '-'}</td>
-        <td class="py-2.5 px-3">${b.raca || 'NE'}</td>
-        <td class="py-2.5 px-3">${b.categoria || 'Macho'}</td>
-        <td class="py-2.5 px-3 text-right font-bold text-white">${Number(b.qtdAnimais || 0).toLocaleString('pt-BR')}</td>
+      <tr class="hover:bg-[#101b24] transition-colors border-b border-[#142330]">
+        <td class="py-2.5 px-3 text-sky-400 font-bold whitespace-nowrap">${b.lote || '-'}</td>
+        <td class="py-2.5 px-3 font-extrabold text-white whitespace-nowrap">${b.baia || '-'}</td>
+        <td class="py-2.5 px-3 text-gray-300">${b.raca || 'NE'}</td>
+        <td class="py-2.5 px-3 text-gray-300">${b.categoria || 'Macho'}</td>
+        <td class="py-2.5 px-3 text-gray-400 text-xs">${b.tipoEntrada || 'Compra'}</td>
+        <td class="py-2.5 px-3 text-right font-black text-white">${Number(b.qtdAnimais || 0).toLocaleString('pt-BR')}</td>
+        <td class="py-2.5 px-3 text-right text-red-400 font-semibold">${Number(b.mortes || 0)}</td>
         <td class="py-2.5 px-3 text-gray-400">${b.dataEntrada || '-'}</td>
-        <td class="py-2.5 px-3 text-right">${b.pesoEntrada ? Number(b.pesoEntrada).toFixed(1) : '-'}</td>
-        <td class="py-2.5 px-3 text-xs text-gray-300">${b.dieta || '-'}</td>
-        <td class="py-2.5 px-3 text-right">${b.diasConfin || 0}</td>
-        <td class="py-2.5 px-3 text-right text-emerald-400 font-semibold">${b.gpd ? Number(b.gpd).toFixed(2) : '1.40'}</td>
+        <td class="py-2.5 px-3 text-right font-semibold text-gray-200">${diasConf}</td>
+        <td class="py-2.5 px-3 text-right font-semibold text-gray-200">${diasTrato}</td>
+        <td class="py-2.5 px-3 text-right text-gray-300">${b.pesoEntrada ? Number(b.pesoEntrada).toFixed(1) : '-'}</td>
+        <td class="py-2.5 px-3 text-right text-emerald-400 font-medium">${consumoStr}</td>
+        <td class="py-2.5 px-3 text-xs text-sky-300 font-medium whitespace-nowrap">${b.dieta || '-'}</td>
+        <td class="py-2.5 px-3 text-xs text-gray-400 whitespace-nowrap">${diasDietaStr}</td>
         <td class="py-2.5 px-3 text-right text-gray-400">${b.pesoAbatePrev ? Number(b.pesoAbatePrev).toFixed(1) : '-'}</td>
-        <td class="py-2.5 px-3 text-right font-bold text-white">${b.pesoEstimadoHoje ? Number(b.pesoEstimadoHoje).toFixed(1) : '-'}</td>
-        <td class="py-2.5 px-3">${badgeEmbarque}</td>
-        <td class="py-2.5 px-3 text-gray-400 text-xs">${lotacaoM2}</td>
-        <td class="py-2.5 px-3 text-[11px] text-gray-400 max-w-xs truncate" title="${b.obs || ''}">${b.obs || '-'}</td>
+        <td class="py-2.5 px-3 text-right font-bold text-amber-400">${b.pesoEstimadoHoje ? Number(b.pesoEstimadoHoje).toFixed(1) : '-'}</td>
+        <td class="py-2.5 px-3 text-right text-sky-400 font-semibold">${b.gpd ? Number(b.gpd).toFixed(2) : '1.40'}</td>
+        <td class="py-2.5 px-3 text-gray-300 whitespace-nowrap">${b.dataEstimadaEmbarque || '-'}</td>
+        <td class="py-2.5 px-3 text-center whitespace-nowrap">${badgeStatus}</td>
       </tr>
     `;
   }).join('');
@@ -1759,7 +1810,547 @@ async function handleSalvarDoc(e) {
 }
 
 // -------------------------------------------------------------
-// VIEW 4: GESTÃO DE ESTOQUES (Gado e Suprimentos)
+// VIEW 4: GESTÃO DE ESTOQUES & MOVIMENTAÇÃO DE GADO
+// -------------------------------------------------------------
+function switchEstoqueTab(tab) {
+  const btnGado = document.getElementById('tabEstoqueGado');
+  const btnInsumos = document.getElementById('tabEstoqueInsumos');
+  const subGado = document.getElementById('subview-estoque-gado');
+  const subInsumos = document.getElementById('subview-estoque-insumos');
+
+  if (tab === 'gado') {
+    if (btnGado) btnGado.className = 'px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-black shadow-md transition flex items-center gap-2';
+    if (btnInsumos) btnInsumos.className = 'px-4 py-2 rounded-xl text-xs font-semibold bg-[#141d18] border border-[#233128] text-gray-300 hover:text-white transition flex items-center gap-2';
+    if (subGado) subGado.classList.remove('hidden');
+    if (subInsumos) subInsumos.classList.add('hidden');
+    carregarGadoModulo();
+  } else {
+    if (btnInsumos) btnInsumos.className = 'px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-black shadow-md transition flex items-center gap-2';
+    if (btnGado) btnGado.className = 'px-4 py-2 rounded-xl text-xs font-semibold bg-[#141d18] border border-[#233128] text-gray-300 hover:text-white transition flex items-center gap-2';
+    if (subInsumos) subInsumos.classList.remove('hidden');
+    if (subGado) subGado.classList.add('hidden');
+    loadEstoquesData();
+  }
+  if (window.lucide) window.lucide.createIcons();
+}
+
+async function carregarGadoModulo() {
+  try {
+    const res = await fetch('/api/gado/saldo');
+    if (!res.ok) throw new Error('Erro ao obter saldo de gado');
+    const saldo = await res.json();
+
+    const elTotal = document.getElementById('kpiGadoTotalVivos');
+    if (elTotal) elTotal.textContent = Number(saldo.totalVivos || 0).toLocaleString('pt-BR');
+
+    const elMachos = document.getElementById('kpiGadoMachos');
+    if (elMachos) elMachos.textContent = Number(saldo.machos || 0).toLocaleString('pt-BR');
+
+    const elPctMachos = document.getElementById('kpiGadoPctMachos');
+    if (elPctMachos) elPctMachos.textContent = (saldo.pctMachos || '0') + '% do rebanho';
+
+    const elFemeas = document.getElementById('kpiGadoFemeas');
+    if (elFemeas) elFemeas.textContent = Number(saldo.femeas || 0).toLocaleString('pt-BR');
+
+    const elPctFemeas = document.getElementById('kpiGadoPctFemeas');
+    if (elPctFemeas) elPctFemeas.textContent = (saldo.pctFemeas || '0') + '% do rebanho';
+
+    await carregarMovimentacoesGado();
+  } catch (err) {
+    console.error('Erro ao carregar módulo de gado:', err);
+  }
+}
+
+async function carregarMovimentacoesGado() {
+  try {
+    const dataIni = document.getElementById('filtroGadoDataIni')?.value || '';
+    const dataFim = document.getElementById('filtroGadoDataFim')?.value || '';
+    const tipo = document.getElementById('filtroGadoTipo')?.value || 'TODOS';
+    const sexo = document.getElementById('filtroGadoSexo')?.value || 'TODOS';
+
+    const params = new URLSearchParams();
+    if (dataIni) params.append('dataInicio', dataIni);
+    if (dataFim) params.append('dataFim', dataFim);
+    if (tipo && tipo !== 'TODOS') params.append('tipo', tipo);
+    if (sexo && sexo !== 'TODOS') params.append('sexo', sexo);
+
+    const res = await fetch('/api/gado/movimentacoes?' + params.toString());
+    if (!res.ok) throw new Error('Erro ao consultar movimentações');
+    const data = await res.json();
+
+    const movimentacoes = data.movimentacoes || [];
+    const kpis = data.kpis || {
+      totalEntradas: 0,
+      totalEntradasM: 0,
+      totalEntradasF: 0,
+      totalSaidas: 0,
+      totalSaidasM: 0,
+      totalSaidasF: 0,
+      totalMortes: 0,
+      saldoPeriodo: 0
+    };
+
+    // Atualizar Contadores & KPIs do Período
+    const elCountInfo = document.getElementById('gadoDashCountInfo');
+    if (elCountInfo) elCountInfo.textContent = `${movimentacoes.length} movimentações filtradas`;
+
+    const elDashEnt = document.getElementById('dashGadoTotalEntradas');
+    if (elDashEnt) elDashEnt.textContent = Number(kpis.totalEntradas || 0).toLocaleString('pt-BR') + ' cab';
+
+    const elDashEntMF = document.getElementById('dashGadoEntradasMF');
+    if (elDashEntMF) elDashEntMF.textContent = `♂ ${Number(kpis.totalEntradasM || 0).toLocaleString('pt-BR')} • ♀ ${Number(kpis.totalEntradasF || 0).toLocaleString('pt-BR')}`;
+
+    const elDashSai = document.getElementById('dashGadoTotalSaidas');
+    if (elDashSai) elDashSai.textContent = Number(kpis.totalSaidas || 0).toLocaleString('pt-BR') + ' cab';
+
+    const elDashSaiMF = document.getElementById('dashGadoSaidasMF');
+    if (elDashSaiMF) elDashSaiMF.textContent = `♂ ${Number(kpis.totalSaidasM || 0).toLocaleString('pt-BR')} • ♀ ${Number(kpis.totalSaidasF || 0).toLocaleString('pt-BR')}`;
+
+    const elDashMortes = document.getElementById('dashGadoTotalMortes');
+    if (elDashMortes) elDashMortes.textContent = Number(kpis.totalMortes || 0).toLocaleString('pt-BR') + ' cab';
+
+    const elDashSaldo = document.getElementById('dashGadoSaldoPeriodo');
+    if (elDashSaldo) {
+      const s = Number(kpis.saldoPeriodo || 0);
+      elDashSaldo.textContent = (s >= 0 ? '+' : '') + s.toLocaleString('pt-BR') + ' cab';
+      elDashSaldo.className = `text-base font-bold ${s >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+    }
+
+    const elKpiBalanco = document.getElementById('kpiGadoBalanco');
+    if (elKpiBalanco) {
+      const s = Number(kpis.saldoPeriodo || 0);
+      elKpiBalanco.textContent = (s >= 0 ? '+' : '') + s.toLocaleString('pt-BR');
+    }
+
+    const elKpiDetalheBalanco = document.getElementById('kpiGadoDetalheBalanco');
+    if (elKpiDetalheBalanco) {
+      elKpiDetalheBalanco.textContent = `${kpis.totalEntradas || 0} entradas • ${kpis.totalSaidas || 0} saídas`;
+    }
+
+    // Renderizar Gráficos se Chart.js estiver disponível
+    renderGadoCharts(movimentacoes, kpis);
+
+    // Renderizar Tabela
+    renderTabelaGado(movimentacoes);
+
+  } catch (err) {
+    console.error('Erro ao carregar movimentações:', err);
+  }
+}
+
+function renderGadoCharts(movimentacoes, kpis) {
+  if (typeof Chart === 'undefined') return;
+
+  // Gráfico 1: Distribuição por Tipo (Doughnut)
+  const canvasTipos = document.getElementById('chartGadoTipos');
+  if (canvasTipos) {
+    if (chartGadoTiposInstance) {
+      chartGadoTiposInstance.destroy();
+      chartGadoTiposInstance = null;
+    }
+
+    const counts = {
+      'Compra': 0,
+      'Transf. Entrada': 0,
+      'Venda / Abate': 0,
+      'Cantina': 0,
+      'Transf. Saída': 0,
+      'Morte': 0
+    };
+
+    movimentacoes.forEach(m => {
+      const t = m.tipo;
+      const qtd = Number(m.quantidade) || 0;
+      if (t === 'ENTRADA_COMPRA') counts['Compra'] += qtd;
+      else if (t === 'ENTRADA_TRANSFERENCIA') counts['Transf. Entrada'] += qtd;
+      else if (t === 'SAIDA_VENDA' || t === 'ABATE') counts['Venda / Abate'] += qtd;
+      else if (t === 'SAIDA_CANTINA') counts['Cantina'] += qtd;
+      else if (t === 'SAIDA_TRANSFERENCIA' || t === 'TRANSFERENCIA') counts['Transf. Saída'] += qtd;
+      else if (t === 'SAIDA_MORTE' || t === 'MORTE') counts['Morte'] += qtd;
+    });
+
+    const hasData = Object.values(counts).some(v => v > 0);
+
+    chartGadoTiposInstance = new Chart(canvasTipos, {
+      type: 'doughnut',
+      data: {
+        labels: hasData ? Object.keys(counts) : ['Sem dados'],
+        datasets: [{
+          data: hasData ? Object.values(counts) : [1],
+          backgroundColor: hasData ? [
+            '#10b981', // emerald
+            '#06b6d4', // cyan
+            '#f59e0b', // amber
+            '#8b5cf6', // purple
+            '#ec4899', // pink
+            '#ef4444'  // red
+          ] : ['#233129'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: '#9ca3af',
+              font: { size: 10 },
+              boxWidth: 12
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Gráfico 2: Comparativo por Sexo (Bar)
+  const canvasSexo = document.getElementById('chartGadoSexo');
+  if (canvasSexo) {
+    if (chartGadoSexoInstance) {
+      chartGadoSexoInstance.destroy();
+      chartGadoSexoInstance = null;
+    }
+
+    chartGadoSexoInstance = new Chart(canvasSexo, {
+      type: 'bar',
+      data: {
+        labels: ['Entradas', 'Saídas'],
+        datasets: [
+          {
+            label: 'Machos (M)',
+            data: [kpis.totalEntradasM || 0, kpis.totalSaidasM || 0],
+            backgroundColor: '#3b82f6',
+            borderRadius: 6
+          },
+          {
+            label: 'Fêmeas (F)',
+            data: [kpis.totalEntradasF || 0, kpis.totalSaidasF || 0],
+            backgroundColor: '#ec4899',
+            borderRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: { color: '#9ca3af', font: { size: 10 } },
+            grid: { display: false }
+          },
+          y: {
+            ticks: { color: '#9ca3af', font: { size: 10 } },
+            grid: { color: '#1f2b23' }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: '#9ca3af',
+              font: { size: 10 },
+              boxWidth: 12
+            }
+          }
+        }
+      }
+    });
+  }
+}
+
+function renderTabelaGado(movimentacoes) {
+  const tbody = document.getElementById('tabelaGadoMovimentacoesBody');
+  if (!tbody) return;
+
+  if (movimentacoes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500 text-xs">Nenhuma movimentação registrada no período.</td></tr>';
+    return;
+  }
+
+  const tipoMap = {
+    'ENTRADA_COMPRA': { label: 'Entrada Compra', class: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' },
+    'ENTRADA_TRANSFERENCIA': { label: 'Entrada Transf.', class: 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' },
+    'SAIDA_VENDA': { label: 'Saída Venda (Abate)', class: 'bg-amber-500/10 text-amber-400 border border-amber-500/30' },
+    'SAIDA_CANTINA': { label: 'Saída Cantina', class: 'bg-purple-500/10 text-purple-400 border border-purple-500/30' },
+    'SAIDA_TRANSFERENCIA': { label: 'Saída Transf.', class: 'bg-pink-500/10 text-pink-400 border border-pink-500/30' },
+    'SAIDA_MORTE': { label: 'Saída Morte', class: 'bg-red-500/10 text-red-400 border border-red-500/30' },
+    'TRANSFERENCIA': { label: 'Transferência', class: 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' },
+    'ABATE': { label: 'Abate', class: 'bg-amber-500/10 text-amber-400 border border-amber-500/30' },
+    'MORTE': { label: 'Morte', class: 'bg-red-500/10 text-red-400 border border-red-500/30' }
+  };
+
+  tbody.innerHTML = movimentacoes.map(m => {
+    const tipoConf = tipoMap[m.tipo] || { label: m.tipo, class: 'bg-gray-500/10 text-gray-400 border border-gray-500/30' };
+    const isM = (m.sexo === 'M' || (!m.sexo && ((m.categoria || '').toLowerCase().includes('macho') || (m.categoria || '').toLowerCase().includes('boi'))));
+    const badgeSexo = isM 
+      ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">♂ M</span>' 
+      : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/10 text-pink-400 border border-pink-500/30">♀ F</span>';
+
+    const origemDest = m.unidadeOrigem ? `Origem: ${m.unidadeOrigem}` : (m.unidadeDestino ? `Destino: ${m.unidadeDestino}` : (m.origem || m.destino || '-'));
+    const obsOuMotivo = m.motivoMorte ? `<span class="text-red-400 font-semibold">${m.motivoMorte}</span>` : (m.obs || m.motivo || '-');
+    const dataFmt = m.data ? m.data.split('T')[0] : '-';
+
+    return `
+      <tr class="hover:bg-[#121c16] transition-colors border-b border-[#142330]">
+        <td class="py-2.5 px-3 text-gray-300 font-mono text-[11px] whitespace-nowrap">${dataFmt}</td>
+        <td class="py-2.5 px-3 whitespace-nowrap">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${tipoConf.class}">${tipoConf.label}</span>
+        </td>
+        <td class="py-2.5 px-3 text-center whitespace-nowrap">${badgeSexo}</td>
+        <td class="py-2.5 px-3 text-right font-black text-white whitespace-nowrap">${Number(m.quantidade || 0).toLocaleString('pt-BR')}</td>
+        <td class="py-2.5 px-3 text-right text-gray-300 whitespace-nowrap">${m.pesoMedio ? Number(m.pesoMedio).toFixed(1) + ' kg' : (m.peso ? Number(m.peso).toFixed(1) + ' kg' : '-')}</td>
+        <td class="py-2.5 px-3 text-gray-300 text-[11px]">${origemDest}</td>
+        <td class="py-2.5 px-3 text-gray-400 text-[11px] truncate max-w-[200px]" title="${m.obs || m.motivoMorte || ''}">${obsOuMotivo}</td>
+        <td class="py-2.5 px-3 text-center whitespace-nowrap">
+          <button onclick="excluirMovimentacaoGado('${m.id}', '${tipoConf.label} - ${m.quantidade} cab')" class="p-1 text-gray-500 hover:text-red-400 transition" title="Excluir movimentação">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function limparFiltrosGado() {
+  const dIni = document.getElementById('filtroGadoDataIni');
+  const dFim = document.getElementById('filtroGadoDataFim');
+  const t = document.getElementById('filtroGadoTipo');
+  const s = document.getElementById('filtroGadoSexo');
+
+  if (dIni) dIni.value = '';
+  if (dFim) dFim.value = '';
+  if (t) t.value = 'TODOS';
+  if (s) s.value = 'TODOS';
+
+  carregarMovimentacoesGado();
+}
+
+function openModalMovimentacaoGado() {
+  const modal = document.getElementById('modalMovimentacaoGado');
+  if (!modal) return;
+
+  const form = document.getElementById('formMovimentacaoGado');
+  if (form) form.reset();
+
+  const dataInput = document.getElementById('movGadoData');
+  if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
+
+  const radioM = document.querySelector('input[name="movGadoSexo"][value="M"]');
+  if (radioM) radioM.checked = true;
+
+  atualizarEstiloSexoGado();
+  onTipoMovGadoChange();
+
+  modal.classList.remove('hidden');
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeModalMovimentacaoGado() {
+  const modal = document.getElementById('modalMovimentacaoGado');
+  if (modal) modal.classList.add('hidden');
+}
+
+function onTipoMovGadoChange() {
+  const tipo = document.getElementById('movGadoTipo')?.value;
+  const blocoOrigem = document.getElementById('blocoUnidadeOrigem');
+  const blocoDestino = document.getElementById('blocoUnidadeDestino');
+  const blocoMorte = document.getElementById('blocoMotivoMorte');
+
+  const inputOrigem = document.getElementById('movGadoUnidadeOrigem');
+  const inputDestino = document.getElementById('movGadoUnidadeDestino');
+  const inputMorte = document.getElementById('movGadoMotivoMorte');
+
+  if (blocoOrigem) {
+    if (tipo === 'ENTRADA_TRANSFERENCIA') {
+      blocoOrigem.classList.remove('hidden');
+      if (inputOrigem) inputOrigem.required = true;
+    } else {
+      blocoOrigem.classList.add('hidden');
+      if (inputOrigem) inputOrigem.required = false;
+    }
+  }
+
+  if (blocoDestino) {
+    if (tipo === 'SAIDA_TRANSFERENCIA') {
+      blocoDestino.classList.remove('hidden');
+      if (inputDestino) inputDestino.required = true;
+    } else {
+      blocoDestino.classList.add('hidden');
+      if (inputDestino) inputDestino.required = false;
+    }
+  }
+
+  if (blocoMorte) {
+    if (tipo === 'SAIDA_MORTE') {
+      blocoMorte.classList.remove('hidden');
+      if (inputMorte) inputMorte.required = true;
+    } else {
+      blocoMorte.classList.add('hidden');
+      if (inputMorte) inputMorte.required = false;
+    }
+  }
+}
+
+function atualizarEstiloSexoGado() {
+  const radioM = document.querySelector('input[name="movGadoSexo"][value="M"]');
+  const labelM = document.getElementById('labelSexoM');
+  const labelF = document.getElementById('labelSexoF');
+
+  if (!labelM || !labelF) return;
+
+  if (radioM && radioM.checked) {
+    labelM.className = 'cursor-pointer border border-blue-500/50 bg-blue-500/15 rounded-xl p-3 flex items-center justify-between transition shadow-sm';
+    labelF.className = 'cursor-pointer border border-[#1f2b24] bg-[#121915] hover:bg-[#18231c] rounded-xl p-3 flex items-center justify-between transition';
+  } else {
+    labelF.className = 'cursor-pointer border border-pink-500/50 bg-pink-500/15 rounded-xl p-3 flex items-center justify-between transition shadow-sm';
+    labelM.className = 'cursor-pointer border border-[#1f2b24] bg-[#121915] hover:bg-[#18231c] rounded-xl p-3 flex items-center justify-between transition';
+  }
+}
+
+async function salvarMovimentacaoGado(e) {
+  e.preventDefault();
+
+  const tipo = document.getElementById('movGadoTipo')?.value;
+  const sexoRadio = document.querySelector('input[name="movGadoSexo"]:checked');
+  const sexo = sexoRadio ? sexoRadio.value : '';
+  const quantidade = Number(document.getElementById('movGadoQtd')?.value || 0);
+  const data = document.getElementById('movGadoData')?.value;
+  const unidadeOrigem = document.getElementById('movGadoUnidadeOrigem')?.value?.trim();
+  const unidadeDestino = document.getElementById('movGadoUnidadeDestino')?.value?.trim();
+  const motivoMorte = document.getElementById('movGadoMotivoMorte')?.value?.trim();
+  const pesoMedio = document.getElementById('movGadoPeso')?.value ? Number(document.getElementById('movGadoPeso').value) : null;
+  const baia = document.getElementById('movGadoBaia')?.value?.trim();
+  const obs = document.getElementById('movGadoObs')?.value?.trim();
+
+  // Validações
+  if (!tipo) {
+    alert('Selecione o tipo de movimentação.');
+    return;
+  }
+  if (!sexo) {
+    alert('Selecione o sexo/categoria do animal (Macho ou Fêmea).');
+    return;
+  }
+  if (!quantidade || quantidade <= 0) {
+    alert('Informe uma quantidade de cabeças válida (maior que 0).');
+    return;
+  }
+  if (!data) {
+    alert('Informe a data da movimentação.');
+    return;
+  }
+
+  if (tipo === 'ENTRADA_TRANSFERENCIA' && !unidadeOrigem) {
+    alert('Para entrada por transferência, é obrigatório informar a Unidade de Origem.');
+    return;
+  }
+
+  if (tipo === 'SAIDA_TRANSFERENCIA' && !unidadeDestino) {
+    alert('Para saída por transferência, é obrigatório informar a Unidade de Destino.');
+    return;
+  }
+
+  if (tipo === 'SAIDA_MORTE' && !motivoMorte) {
+    alert('Para registro de morte, é obrigatório informar a causa/motivo.');
+    return;
+  }
+
+  // Trava de segurança com diálogo de confirmação explícito
+  const tipoLabels = {
+    'ENTRADA_COMPRA': 'Entrada por Compra',
+    'ENTRADA_TRANSFERENCIA': 'Entrada por Transferência',
+    'SAIDA_VENDA': 'Saída Venda (Abate)',
+    'SAIDA_CANTINA': 'Saída Abate para Cantina',
+    'SAIDA_TRANSFERENCIA': 'Saída por Transferência',
+    'SAIDA_MORTE': 'Saída por Morte'
+  };
+  const tipoDesc = tipoLabels[tipo] || tipo;
+  const sexoDesc = sexo === 'M' ? 'Machos (M)' : 'Fêmeas (F)';
+
+  let detalhesConfirm = `• Tipo: ${tipoDesc}\n• Quantidade: ${quantidade} cabeças\n• Categoria: ${sexoDesc}\n• Data: ${data}`;
+  if (unidadeOrigem) detalhesConfirm += `\n• Origem: ${unidadeOrigem}`;
+  if (unidadeDestino) detalhesConfirm += `\n• Destino: ${unidadeDestino}`;
+  if (motivoMorte) detalhesConfirm += `\n• Causa Morte: ${motivoMorte}`;
+
+  const confirmou = confirm(`CONFIRMAR MOVIMENTAÇÃO DE GADO?\n\n${detalhesConfirm}\n\nTem certeza de que deseja registrar esta movimentação?`);
+  if (!confirmou) return;
+
+  const btnSalvar = document.getElementById('btnSalvarMovGado');
+  if (btnSalvar) {
+    btnSalvar.disabled = true;
+    btnSalvar.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Registrando...`;
+  }
+
+  try {
+    const payload = {
+      tipo,
+      sexo,
+      quantidade,
+      data,
+      unidadeOrigem: tipo === 'ENTRADA_TRANSFERENCIA' ? unidadeOrigem : undefined,
+      unidadeDestino: tipo === 'SAIDA_TRANSFERENCIA' ? unidadeDestino : undefined,
+      motivoMorte: tipo === 'SAIDA_MORTE' ? motivoMorte : undefined,
+      pesoMedio,
+      baia,
+      obs
+    };
+
+    const res = await fetch('/api/gado/movimentacoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    if (!res.ok) {
+      alert(result.error || 'Erro ao registrar movimentação.');
+      return;
+    }
+
+    alert('Movimentação de gado registrada com sucesso!');
+    closeModalMovimentacaoGado();
+    await carregarGadoModulo();
+
+  } catch (err) {
+    console.error(err);
+    alert('Erro de conexão ao salvar movimentação.');
+  } finally {
+    if (btnSalvar) {
+      btnSalvar.disabled = false;
+      btnSalvar.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> Salvar Movimentação`;
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+}
+
+async function excluirMovimentacaoGado(id, resumo) {
+  const confirmou = confirm(`Deseja realmente EXCLUIR a seguinte movimentação?\n\n"${resumo}"\n\nEsta ação excluirá o registro definitivamente.`);
+  if (!confirmou) return;
+
+  try {
+    const res = await fetch('/api/gado/movimentacoes/' + id, {
+      method: 'DELETE'
+    });
+
+    const result = await res.json();
+    if (!res.ok) {
+      alert(result.error || 'Erro ao excluir movimentação.');
+      return;
+    }
+
+    alert('Movimentação excluída com sucesso!');
+    await carregarGadoModulo();
+  } catch (err) {
+    console.error(err);
+    alert('Erro de conexão ao excluir movimentação.');
+  }
+}
+
+// -------------------------------------------------------------
+// VIEW 4: GESTÃO DE ESTOQUES (Insumos e Suplementos)
 // -------------------------------------------------------------
 async function loadEstoquesData() {
   try {

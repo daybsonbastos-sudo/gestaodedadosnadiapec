@@ -84,12 +84,19 @@ function parseExcelLotesAtivos(buffer) {
     const mortes = Number(r[idxMorte >= 0 ? idxMorte : 8]) || 0;
     const consumoMO = Number(r[idxConsMO >= 0 ? idxConsMO : 14]) || 0;
 
+    const linhaNome = idxLinha >= 0 && r[idxLinha] ? String(r[idxLinha]).trim() : '';
+    const tipoEnt = idxTipoEnt >= 0 && r[idxTipoEnt] ? String(r[idxTipoEnt]).trim() : 'Compra';
+    const diasTrato = idxDiasTrato >= 0 && r[idxDiasTrato] ? Number(r[idxDiasTrato]) || 0 : 0;
+    const consumoMS = idxConsMS >= 0 && r[idxConsMS] ? Number(r[idxConsMS]) || 0 : 0;
+
     lotes.push({
+      linha: linhaNome,
       lote: loteNome,
       baia: baiaNorm,
       curralOriginal: curralRaw,
       raca,
       categoria,
+      tipoEntrada: tipoEnt,
       qtdAnimais: qtd,
       mortes,
       pesoEntrada: pesoEnt,
@@ -98,7 +105,9 @@ function parseExcelLotesAtivos(buffer) {
       gpd,
       dieta,
       diasConfin,
+      diasTrato,
       consumoMO,
+      consumoMS,
       dataEntrada: dtEnt,
       dataEstimadaEmbarque: dtAbate
     });
@@ -132,11 +141,23 @@ async function parsePdfLotesAtivos(buffer) {
       const curralRaw = match[2].trim();
       const raca = match[3].trim();
       const categoria = match[4].trim();
+      const tipoEnt = match[5] ? match[5].trim() : 'Compra';
       const qtd = parseInt(match[6], 10) || 0;
       const mortes = parseInt(match[7], 10) || 0;
       const dtEnt = parseDateBr(match[8]);
       const diasConf = parseInt(match[10], 10) || 0;
+      const diasTrato = parseInt(match[11], 10) || 0;
       const pesoEnt = parseFloat(match[12].replace(',', '.')) || 0;
+
+      // Pegar tokens após o pesoEntrada para extrair consumoMO, consumoMS e Dieta
+      const afterMatch = line.substring(match[0].length).trim();
+      const afterTokens = afterMatch.split(/\s+/);
+      const consumoMO = afterTokens[0] ? parseFloat(afterTokens[0].replace(',', '.')) || 0 : 0;
+      const consumoMS = afterTokens[1] ? parseFloat(afterTokens[1].replace(',', '.')) || 0 : 0;
+      const consumoPV = afterTokens[2] ? parseFloat(afterTokens[2].replace(',', '.')) || 0 : 0;
+
+      // Dieta é o token com _Term, _Adap ou _Semi
+      const dietaToken = afterTokens.find(t => t.includes('_Term') || t.includes('_Adap') || t.includes('_Semi')) || '';
 
       // Pegar os últimos elementos da linha para dieta, peso previsto, peso estimado e data abate
       const tokens = line.split(/\s+/);
@@ -161,15 +182,19 @@ async function parsePdfLotesAtivos(buffer) {
         curralOriginal: curralRaw,
         raca,
         categoria,
+        tipoEntrada: tipoEnt,
         qtdAnimais: qtd,
         mortes,
         pesoEntrada: pesoEnt,
         pesoEstimadoHoje: pesoHoje,
         pesoAbatePrev: pesoAbate,
         gpd,
-        dieta: '',
+        dieta: dietaToken,
         diasConfin: diasConf,
-        consumoMO: 0,
+        diasTrato: diasTrato,
+        consumoMO,
+        consumoMS,
+        consumoPV,
         dataEntrada: dtEnt,
         dataEstimadaEmbarque: dtAbate
       });

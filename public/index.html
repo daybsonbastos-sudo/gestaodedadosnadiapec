@@ -329,136 +329,190 @@
       </div>
     </div>
 
-    <!-- VIEW 2: REBANHO (Tabela Modelo Relatório _reb_) -->
+    <!-- VIEW 2: REBANHO (Modelo Feed Manager / Nutron - Lotes Ativos) -->
     <div id="view-rebanho" class="hidden space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 class="text-xl font-bold text-white flex items-center gap-2">
-            <i data-lucide="table" class="w-5 h-5 text-emerald-400"></i>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/40">Feed Manager Nutron</span>
+            <span class="text-xs text-gray-500">•</span>
+            <span class="text-xs text-gray-400 font-medium">Controle de Lotes Ativos</span>
+          </div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2 mt-1">
+            <i data-lucide="layout-grid" class="w-5 h-5 text-sky-400"></i>
             Relatório de Rebanho Atual
           </h2>
-          <p class="text-xs text-gray-400 mt-0.5">Posição consolidada por curral, lote, dietas e previsão de embarque</p>
+          <p class="text-xs text-gray-400 mt-0.5">Exibição no padrão Nutron com colunas zootécnicas, consumo MO/MS, dietas e projeções</p>
         </div>
         
         <div class="flex flex-wrap items-center gap-2">
           <!-- Botão Atualizar Relatório com Upload Integrado -->
-          <button id="btnAtualizarRelatorioRebanho" onclick="openAtualizarRelatorioModal()" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+          <button id="btnAtualizarRelatorioRebanho" onclick="openAtualizarRelatorioModal()" class="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
             <i data-lucide="refresh-cw" class="w-4 h-4"></i> Atualizar Relatório
           </button>
 
-          <button onclick="exportRebanhoPDF()" class="px-3 py-1.5 bg-[#141d18] border border-[#233128] hover:bg-[#1a2620] text-emerald-400 font-semibold rounded-xl text-xs flex items-center gap-1.5">
+          <button onclick="exportRebanhoPDF()" class="px-3 py-1.5 bg-[#101b24] border border-[#1b2d3d] hover:bg-[#152433] text-sky-400 font-semibold rounded-xl text-xs flex items-center gap-1.5">
             <i data-lucide="file-text" class="w-4 h-4"></i> Exportar PDF
           </button>
-          <a href="/api/export/excel?tipo=rebanho" class="px-3 py-1.5 bg-[#141d18] border border-[#233128] hover:bg-[#1a2620] text-emerald-400 font-semibold rounded-xl text-xs flex items-center gap-1.5">
+          <a href="/api/export/excel?tipo=rebanho" class="px-3 py-1.5 bg-[#101b24] border border-[#1b2d3d] hover:bg-[#152433] text-sky-400 font-semibold rounded-xl text-xs flex items-center gap-1.5">
             <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar Excel
           </a>
         </div>
       </div>
 
+      <!-- Resumo do Confinamento (Padrão Rodapé Nutron) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+        <div class="bg-[#0b141d] border border-[#152737] p-3 rounded-2xl">
+          <span class="text-[10px] text-gray-400 font-semibold block uppercase">Animais Ativos</span>
+          <span id="nutronKpiAnimais" class="text-lg font-black text-white">0</span>
+          <span class="text-[9px] text-sky-400 font-medium block">no confinamento</span>
+        </div>
+        <div class="bg-[#0b141d] border border-[#152737] p-3 rounded-2xl">
+          <span class="text-[10px] text-gray-400 font-semibold block uppercase">Currais Ocupados</span>
+          <span id="nutronKpiCurrais" class="text-lg font-black text-sky-400">0</span>
+          <span class="text-[9px] text-gray-400 font-medium block">piquetes ativos</span>
+        </div>
+        <div class="bg-[#0b141d] border border-[#152737] p-3 rounded-2xl">
+          <span class="text-[10px] text-gray-400 font-semibold block uppercase">Consumo Médio MO</span>
+          <span id="nutronKpiConsMO" class="text-lg font-black text-emerald-400">18,6 kg</span>
+          <span class="text-[9px] text-gray-400 font-medium block">cab / dia</span>
+        </div>
+        <div class="bg-[#0b141d] border border-[#152737] p-3 rounded-2xl">
+          <span class="text-[10px] text-gray-400 font-semibold block uppercase">Consumo Médio MS</span>
+          <span id="nutronKpiConsMS" class="text-lg font-black text-emerald-400">10,1 kg</span>
+          <span class="text-[9px] text-gray-400 font-medium block">cab / dia</span>
+        </div>
+        <div class="bg-[#0b141d] border border-[#152737] p-3 rounded-2xl">
+          <span class="text-[10px] text-gray-400 font-semibold block uppercase">Peso Entrada Médio</span>
+          <span id="nutronKpiPesoEnt" class="text-lg font-black text-white">0 kg</span>
+          <span class="text-[9px] text-gray-400 font-medium block">média geral</span>
+        </div>
+        <div class="bg-[#0b141d] border border-[#152737] p-3 rounded-2xl">
+          <span class="text-[10px] text-gray-400 font-semibold block uppercase">Peso Estimado Hoje</span>
+          <span id="nutronKpiPesoHoje" class="text-lg font-black text-amber-400">0 kg</span>
+          <span class="text-[9px] text-amber-400/80 font-medium block">projeção zootécnica</span>
+        </div>
+      </div>
+
       <!-- PAINEL DE FILTROS DO REBANHO -->
-      <div class="bg-[#111814] border border-[#1e2a22] p-4 rounded-2xl space-y-3.5 shadow-lg">
+      <div class="bg-[#0e1720] border border-[#182837] p-4 rounded-2xl space-y-3.5 shadow-lg">
         <!-- Linha 1: Clicáveis para filtrar movimentações e status -->
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-2">
-            <button id="btnFiltroRebanhoTodos" onclick="setRebanhoQuickFilter('TODOS')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-black shadow-md transition flex items-center gap-1.5">
-              <span>Todas as Baias</span>
+            <button id="btnFiltroRebanhoTodos" onclick="setRebanhoQuickFilter('TODOS')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 text-black shadow-md transition flex items-center gap-1.5">
+              <span>Todos os Currais</span>
               <span id="countRebanhoTodos" class="px-1.5 py-0.5 rounded-md bg-black/20 text-[10px]">0</span>
             </button>
-            <button id="btnFiltroRebanhoProntos" onclick="setRebanhoQuickFilter('PRONTOS')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#16211a] border border-[#233128] text-amber-400 hover:bg-[#1d2c22] transition flex items-center gap-1.5">
-              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+            <button id="btnFiltroRebanhoProntos" onclick="setRebanhoQuickFilter('PRONTOS')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#131f2b] border border-[#1e3245] text-amber-400 hover:bg-[#172737] transition flex items-center gap-1.5">
+              <i data-lucide="award" class="w-3.5 h-3.5"></i>
               <span>Animais Prontos</span>
               <span id="countRebanhoProntos" class="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-[10px]">0</span>
             </button>
-            <button id="btnFiltroRebanhoEntrada" onclick="setRebanhoQuickFilter('ENTRADA')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#16211a] border border-[#233128] text-blue-400 hover:bg-[#1d2c22] transition flex items-center gap-1.5">
+            <button id="btnFiltroRebanhoEntrada" onclick="setRebanhoQuickFilter('ENTRADA')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#131f2b] border border-[#1e3245] text-sky-400 hover:bg-[#172737] transition flex items-center gap-1.5">
               <i data-lucide="arrow-down-left" class="w-3.5 h-3.5"></i>
-              <span>Movimentações de Entrada</span>
-              <span id="countRebanhoEntrada" class="px-1.5 py-0.5 rounded-md bg-blue-500/20 text-[10px]">0</span>
+              <span>Em Adaptação / Entrada</span>
+              <span id="countRebanhoEntrada" class="px-1.5 py-0.5 rounded-md bg-sky-500/20 text-[10px]">0</span>
             </button>
-            <button id="btnFiltroRebanhoSaida" onclick="setRebanhoQuickFilter('SAIDA')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#16211a] border border-[#233128] text-purple-400 hover:bg-[#1d2c22] transition flex items-center gap-1.5">
+            <button id="btnFiltroRebanhoSaida" onclick="setRebanhoQuickFilter('SAIDA')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#131f2b] border border-[#1e3245] text-purple-400 hover:bg-[#172737] transition flex items-center gap-1.5">
               <i data-lucide="truck" class="w-3.5 h-3.5"></i>
-              <span>Movimentações de Saída</span>
+              <span>Previsão de Saída / Abate</span>
               <span id="countRebanhoSaida" class="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-[10px]">0</span>
             </button>
           </div>
 
-          <div class="text-xs text-gray-400 font-medium bg-[#0b100d] border border-[#1b2520] px-3 py-1.5 rounded-xl flex items-center gap-2">
+          <div class="text-xs text-gray-300 font-medium bg-[#091017] border border-[#152433] px-3 py-1.5 rounded-xl flex items-center gap-2">
             <span>Exibindo:</span>
-            <span id="rebanhoTotalFiltradoAnimais" class="text-emerald-400 font-bold">0</span> cabeças em
+            <span id="rebanhoTotalFiltradoAnimais" class="text-sky-400 font-bold">0</span> cabeças em
             <span id="rebanhoTotalFiltradoBaias" class="text-white font-bold">0</span> currais
           </div>
         </div>
 
         <!-- Linha 2: Busca por Lote ou Raça + Dropdown por Baia -->
-        <div class="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-[#18231c]">
+        <div class="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-[#152331]">
           <div class="relative flex-1 min-w-[240px]">
-            <i data-lucide="search" class="w-4 h-4 text-gray-500 absolute left-3 top-2.5"></i>
-            <input type="text" id="rebanhoSearch" oninput="applyRebanhoFilters()" placeholder="Buscar por Lote ou Raça (ex: 79, NE, CR, Fêmea)..." class="w-full bg-[#0b100d] border border-[#1e2a22] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition">
+            <i data-lucide="search" class="w-4 h-4 text-sky-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="rebanhoSearch" oninput="applyRebanhoFilters()" placeholder="Buscar por Lote ou Raça (ex: 79, CP 78, Nelore, Novilha, Boi Inteiro)..." class="w-full bg-[#080e14] border border-[#1b2d3d] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-sky-500 transition">
           </div>
 
-          <!-- Dropdown para filtrar por Baia -->
-          <div class="flex items-center gap-1.5 bg-[#0b100d] border border-[#1e2a22] rounded-xl px-2.5 py-1">
-            <i data-lucide="grid" class="w-3.5 h-3.5 text-gray-400"></i>
+          <!-- Dropdown para filtrar por Baia / Curral -->
+          <div class="flex items-center gap-1.5 bg-[#080e14] border border-[#1b2d3d] rounded-xl px-2.5 py-1">
+            <i data-lucide="grid" class="w-3.5 h-3.5 text-sky-400"></i>
             <select id="rebanhoBaiaSelect" onchange="applyRebanhoFilters()" class="bg-transparent text-xs text-white focus:outline-none py-1 pr-2 cursor-pointer font-medium">
-              <option value="TODAS" class="bg-[#111814] text-white">Todas as Baias</option>
+              <option value="TODAS" class="bg-[#0e1720] text-white">Todos os Currais</option>
             </select>
           </div>
 
           <!-- Botão Resetar Filtros -->
-          <button onclick="clearRebanhoFilters()" title="Limpar Filtros" class="px-3 py-2 bg-[#16211a] hover:bg-[#1d2c22] border border-[#233128] rounded-xl text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition">
+          <button onclick="clearRebanhoFilters()" title="Limpar Filtros" class="px-3 py-2 bg-[#131f2b] hover:bg-[#172737] border border-[#1e3245] rounded-xl text-gray-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition">
             <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Limpar
           </button>
         </div>
       </div>
 
-      <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl overflow-hidden shadow-xl">
+      <!-- TABELA NO MODELO NUTRON FEED MANAGER COM COLUNAS EM DESTAQUE AZUL -->
+      <div class="bg-[#0b1219] border border-[#162534] rounded-2xl overflow-hidden shadow-2xl">
         <div class="overflow-x-auto custom-scrollbar">
           <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-[#121a15] text-gray-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#1f2b23]">
+            <thead class="bg-[#0d1822] border-b-2 border-sky-500/50 text-[10px] uppercase font-bold tracking-wider">
               <tr>
-                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('baia')">
-                  <div class="flex items-center gap-1">Baia <span id="sortIcon-baia" class="text-emerald-400 font-bold">▲</span></div>
-                </th>
-                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('lote')">
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('lote')">
                   <div class="flex items-center gap-1">Lote <span id="sortIcon-lote" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('raca')">
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('baia')">
+                  <div class="flex items-center gap-1">Curral <span id="sortIcon-baia" class="text-sky-400 font-bold">▲</span></div>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('raca')">
                   <div class="flex items-center gap-1">Raça <span id="sortIcon-raca" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('categoria')">
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('categoria')">
                   <div class="flex items-center gap-1">Categoria <span id="sortIcon-categoria" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('qtdAnimais')">
-                  <div class="flex items-center justify-end gap-1">Nº Animais <span id="sortIcon-qtdAnimais" class="text-gray-500">↕</span></div>
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('tipoEntrada')">
+                  <div class="flex items-center gap-1">Tipo Entrada <span id="sortIcon-tipoEntrada" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('dataEntrada')">
-                  <div class="flex items-center gap-1">Dt Entrada <span id="sortIcon-dataEntrada" class="text-gray-500">↕</span></div>
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('qtdAnimais')">
+                  <div class="flex items-center justify-end gap-1">Qtde Anm <span id="sortIcon-qtdAnimais" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('pesoEntrada')">
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('mortes')">
+                  <div class="flex items-center justify-end gap-1">Morte <span id="sortIcon-mortes" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('dataEntrada')">
+                  <div class="flex items-center gap-1">Data Entrada <span id="sortIcon-dataEntrada" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('diasConfin')">
+                  <div class="flex items-center justify-end gap-1">Dias Conf <span id="sortIcon-diasConfin" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('diasTrato')">
+                  <div class="flex items-center justify-end gap-1">Dias Trato <span id="sortIcon-diasTrato" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('pesoEntrada')">
                   <div class="flex items-center justify-end gap-1">Peso Entr <span id="sortIcon-pesoEntrada" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('dieta')">
-                  <div class="flex items-center gap-1">Dieta <span id="sortIcon-dieta" class="text-gray-500">↕</span></div>
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('consumoMO')">
+                  <div class="flex items-center justify-end gap-1">Cons Médio (MO/MS) <span id="sortIcon-consumoMO" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('diasConfin')">
-                  <div class="flex items-center justify-end gap-1">Dias Confin <span id="sortIcon-diasConfin" class="text-gray-500">↕</span></div>
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('dieta')">
+                  <div class="flex items-center gap-1">Dieta Atual <span id="sortIcon-dieta" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('gpd')">
-                  <div class="flex items-center justify-end gap-1">GPD <span id="sortIcon-gpd" class="text-gray-500">↕</span></div>
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('diasTerm')">
+                  <div class="flex items-center gap-1">Dias Dieta <span id="sortIcon-diasTerm" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('pesoAbatePrev')">
-                  <div class="flex items-center justify-end gap-1">Peso Prev <span id="sortIcon-pesoAbatePrev" class="text-gray-500">↕</span></div>
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('pesoAbatePrev')">
+                  <div class="flex items-center justify-end gap-1">Peso Abate Prev <span id="sortIcon-pesoAbatePrev" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 text-right cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('pesoEstimadoHoje')">
-                  <div class="flex items-center justify-end gap-1">Peso Hoje <span id="sortIcon-pesoEstimadoHoje" class="text-gray-500">↕</span></div>
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('pesoEstimadoHoje')">
+                  <div class="flex items-center justify-end gap-1">Peso Estim Hoje <span id="sortIcon-pesoEstimadoHoje" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3 cursor-pointer hover:text-white select-none" onclick="sortRebanhoBy('dataEstimadaEmbarque')">
-                  <div class="flex items-center gap-1">Previsão Embarque <span id="sortIcon-dataEstimadaEmbarque" class="text-gray-500">↕</span></div>
+                <th class="py-3 px-3 text-right cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('gpd')">
+                  <div class="flex items-center justify-end gap-1">Dieta GPD Aj <span id="sortIcon-gpd" class="text-gray-500">↕</span></div>
                 </th>
-                <th class="py-3 px-3">Lotação (m²)</th>
-                <th class="py-3 px-3">Obs</th>
+                <th class="py-3 px-3 cursor-pointer hover:bg-sky-950/40 select-none text-sky-400" onclick="sortRebanhoBy('dataEstimadaEmbarque')">
+                  <div class="flex items-center gap-1">Data Estim Abate <span id="sortIcon-dataEstimadaEmbarque" class="text-gray-500">↕</span></div>
+                </th>
+                <th class="py-3 px-3 text-center text-sky-400">Previsão</th>
               </tr>
             </thead>
-            <tbody id="rebanhoTableBody" class="divide-y divide-[#17201b] font-medium text-gray-300"></tbody>
+            <tbody id="rebanhoTableBody" class="divide-y divide-[#13202c] font-medium text-gray-300"></tbody>
           </table>
         </div>
       </div>
@@ -527,25 +581,228 @@
       </div>
     </div>
 
-    <!-- VIEW 4: ESTOQUES DE GADO & SUPRIMENTOS (Novo Módulo Completo) -->
+    <!-- VIEW 4: ESTOQUES (Insumos e Movimentação de Gado) -->
     <div id="view-estoque" class="hidden space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-bold text-white flex items-center gap-2">
-            <i data-lucide="boxes" class="w-5 h-5 text-emerald-400"></i>
-            Estoques por Unidade
-          </h2>
-          <p class="text-xs text-gray-400 mt-0.5">Controle de insumos, silagem, ração e animais (Admin cadastra estoques; apenas titular movimenta)</p>
-        </div>
-
-        <!-- Botão criar estoque visível apenas para Admin -->
-        <button id="btnCriarEstoqueAdmin" onclick="openCriarEstoqueModal()" class="hidden px-4 py-2 bg-[#16211b] border border-[#233229] hover:bg-[#1d2b23] text-emerald-400 font-bold rounded-xl text-xs flex items-center gap-1.5">
-          <i data-lucide="plus" class="w-4 h-4"></i> Criar Estoque na Unidade (Admin)
+      <!-- Seletor de Sub-Abas -->
+      <div class="flex items-center gap-2 border-b border-[#1b2520] pb-3">
+        <button id="tabEstoqueGado" onclick="switchEstoqueTab('gado')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-black shadow-md transition flex items-center gap-2">
+          <i data-lucide="activity" class="w-4 h-4"></i> Movimentação de Gado (Rebanho Vivo)
+        </button>
+        <button id="tabEstoqueInsumos" onclick="switchEstoqueTab('insumos')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-[#141d18] border border-[#233128] text-gray-300 hover:text-white transition flex items-center gap-2">
+          <i data-lucide="boxes" class="w-4 h-4"></i> Estoque de Insumos & Suplementos
         </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="estoquesList">
-        <!-- Renderizado dinamicamente -->
+      <!-- SUB-VIEW 1: MOVIMENTAÇÃO DE GADO (NOVO MÓDULO COMPLETO) -->
+      <div id="subview-estoque-gado" class="space-y-6">
+        <!-- Header e Botão de Ação -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
+              Controle de Movimentação de Gado
+            </h2>
+            <p class="text-xs text-gray-400 mt-0.5">Gestão de entradas (compra, transferência), saídas (venda, cantina, morte) e saldos por sexo</p>
+          </div>
+
+          <button onclick="openModalMovimentacaoGado()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-950 transition">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Registrar Movimentação de Gado
+          </button>
+        </div>
+
+        <!-- KPIs DO SALDO TOTAL DE ANIMAIS VIVOS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <!-- Total Vivos -->
+          <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4 flex items-center justify-between shadow-lg">
+            <div>
+              <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Total Animais Vivos</p>
+              <h3 id="kpiGadoTotalVivos" class="text-2xl font-black text-white mt-1">0</h3>
+              <p class="text-[10px] text-emerald-400 mt-0.5 font-medium flex items-center gap-1">
+                <i data-lucide="check-circle-2" class="w-3 h-3"></i> Rebanho Atual Ativo
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <i data-lucide="users" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <!-- Machos -->
+          <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4 flex items-center justify-between shadow-lg">
+            <div>
+              <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Machos (M)</p>
+              <h3 id="kpiGadoMachos" class="text-2xl font-black text-blue-400 mt-1">0</h3>
+              <p id="kpiGadoPctMachos" class="text-[10px] text-blue-400/80 mt-0.5 font-medium">0% do rebanho</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-black text-lg">
+              ♂
+            </div>
+          </div>
+
+          <!-- Fêmeas -->
+          <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4 flex items-center justify-between shadow-lg">
+            <div>
+              <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Fêmeas (F)</p>
+              <h3 id="kpiGadoFemeas" class="text-2xl font-black text-pink-400 mt-1">0</h3>
+              <p id="kpiGadoPctFemeas" class="text-[10px] text-pink-400/80 mt-0.5 font-medium">0% do rebanho</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 font-black text-lg">
+              ♀
+            </div>
+          </div>
+
+          <!-- Balanço do Período -->
+          <div class="bg-[#0e1411] border border-[#1b2520] rounded-2xl p-4 flex items-center justify-between shadow-lg">
+            <div>
+              <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Balanço do Período</p>
+              <h3 id="kpiGadoBalanco" class="text-2xl font-black text-white mt-1">0</h3>
+              <p id="kpiGadoDetalheBalanco" class="text-[10px] text-gray-400 mt-0.5 font-medium">0 entradas • 0 saídas</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+              <i data-lucide="scale" class="w-6 h-6"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- DASH INTERNA DE MOVIMENTAÇÃO DE GADO -->
+        <div class="bg-[#111814] border border-[#1e2a22] p-4 rounded-2xl space-y-4 shadow-lg">
+          <div class="flex items-center justify-between border-b border-[#1b2520] pb-2.5">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="filter" class="w-4 h-4 text-emerald-400"></i>
+              Filtros da Dash de Movimentações
+            </h3>
+            <span id="gadoDashCountInfo" class="text-xs text-gray-400 font-medium">0 movimentações filtradas</span>
+          </div>
+
+          <!-- Linha de Filtros: Período, Tipo e Categoria M/F -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-400 mb-1">Data Início</label>
+              <input type="date" id="filtroGadoDataIni" onchange="carregarMovimentacoesGado()" class="w-full bg-[#0b100d] border border-[#1e2a22] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-400 mb-1">Data Fim</label>
+              <input type="date" id="filtroGadoDataFim" onchange="carregarMovimentacoesGado()" class="w-full bg-[#0b100d] border border-[#1e2a22] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-400 mb-1">Tipo de Movimentação</label>
+              <select id="filtroGadoTipo" onchange="carregarMovimentacoesGado()" class="w-full bg-[#0b100d] border border-[#1e2a22] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer">
+                <option value="TODOS">Todos os Tipos</option>
+                <option value="ENTRADA_COMPRA">📥 Entrada por Compra</option>
+                <option value="ENTRADA_TRANSFERENCIA">📥 Entrada por Transferência</option>
+                <option value="SAIDA_VENDA">📤 Saída Venda (Abate)</option>
+                <option value="SAIDA_CANTINA">📤 Saída Abate p/ Cantina</option>
+                <option value="SAIDA_TRANSFERENCIA">📤 Saída por Transferência</option>
+                <option value="SAIDA_MORTE">☠️ Saída por Morte</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-400 mb-1">Categoria / Sexo</label>
+              <div class="flex items-center gap-1.5">
+                <select id="filtroGadoSexo" onchange="carregarMovimentacoesGado()" class="w-full bg-[#0b100d] border border-[#1e2a22] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer">
+                  <option value="TODOS">Todos (M e F)</option>
+                  <option value="M">♂ Machos (M)</option>
+                  <option value="F">♀ Fêmeas (F)</option>
+                </select>
+                <button onclick="limparFiltrosGado()" title="Limpar Filtros" class="p-2 bg-[#16211a] hover:bg-[#1d2c22] border border-[#233128] rounded-xl text-gray-400 hover:text-white transition">
+                  <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cards de Resumo do Período -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            <div class="bg-[#0b100d] p-3 rounded-xl border border-[#1a251e]">
+              <span class="text-[10px] text-gray-400 font-semibold block uppercase">Total Entradas</span>
+              <span id="dashGadoTotalEntradas" class="text-base font-bold text-emerald-400">0 cab</span>
+              <span id="dashGadoEntradasMF" class="text-[10px] text-gray-500 block">♂ 0 • ♀ 0</span>
+            </div>
+            <div class="bg-[#0b100d] p-3 rounded-xl border border-[#1a251e]">
+              <span class="text-[10px] text-gray-400 font-semibold block uppercase">Total Saídas</span>
+              <span id="dashGadoTotalSaidas" class="text-base font-bold text-amber-400">0 cab</span>
+              <span id="dashGadoSaidasMF" class="text-[10px] text-gray-500 block">♂ 0 • ♀ 0</span>
+            </div>
+            <div class="bg-[#0b100d] p-3 rounded-xl border border-[#1a251e]">
+              <span class="text-[10px] text-gray-400 font-semibold block uppercase">Mortes no Período</span>
+              <span id="dashGadoTotalMortes" class="text-base font-bold text-red-400">0 cab</span>
+              <span class="text-[10px] text-gray-500 block">perda zootécnica</span>
+            </div>
+            <div class="bg-[#0b100d] p-3 rounded-xl border border-[#1a251e]">
+              <span class="text-[10px] text-gray-400 font-semibold block uppercase">Saldo do Período</span>
+              <span id="dashGadoSaldoPeriodo" class="text-base font-bold text-white">0 cab</span>
+              <span class="text-[10px] text-gray-500 block">entradas - saídas</span>
+            </div>
+          </div>
+
+          <!-- Gráficos Visuais da Dash Interna -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div class="bg-[#0b100d] border border-[#1a251e] p-3.5 rounded-xl">
+              <h4 class="text-xs font-bold text-gray-300 mb-2 flex items-center gap-1.5">
+                <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-emerald-400"></i>
+                Distribuição por Tipo de Movimentação
+              </h4>
+              <div class="h-44 relative flex items-center justify-center">
+                <canvas id="chartGadoTipos"></canvas>
+              </div>
+            </div>
+            <div class="bg-[#0b100d] border border-[#1a251e] p-3.5 rounded-xl">
+              <h4 class="text-xs font-bold text-gray-300 mb-2 flex items-center gap-1.5">
+                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-blue-400"></i>
+                Comparativo por Sexo (Machos vs Fêmeas)
+              </h4>
+              <div class="h-44 relative flex items-center justify-center">
+                <canvas id="chartGadoSexo"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela Histórica de Movimentações -->
+          <div class="bg-[#0b100d] border border-[#1a251e] rounded-xl overflow-hidden mt-3">
+            <div class="overflow-x-auto custom-scrollbar max-h-96">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-[#121a15] text-gray-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#1f2b23] sticky top-0">
+                  <tr>
+                    <th class="py-2.5 px-3">Data</th>
+                    <th class="py-2.5 px-3">Tipo de Movimento</th>
+                    <th class="py-2.5 px-3 text-center">Sexo</th>
+                    <th class="py-2.5 px-3 text-right">Qtd (Cab)</th>
+                    <th class="py-2.5 px-3 text-right">Peso (kg)</th>
+                    <th class="py-2.5 px-3">Origem / Destino</th>
+                    <th class="py-2.5 px-3">Obs / Causa</th>
+                    <th class="py-2.5 px-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaGadoMovimentacoesBody" class="divide-y divide-[#17201b] font-medium text-gray-300">
+                  <!-- Renderizado dinamicamente -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-VIEW 2: ESTOQUE DE INSUMOS (Original) -->
+      <div id="subview-estoque-insumos" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="boxes" class="w-5 h-5 text-emerald-400"></i>
+              Estoques de Insumos & Suplementos por Unidade
+            </h3>
+            <p class="text-xs text-gray-400 mt-0.5">Saldos de silagem, concentrado, milho e suplementos minerais</p>
+          </div>
+
+          <button id="btnCriarEstoqueAdmin" onclick="openCriarEstoqueModal()" class="hidden px-4 py-2 bg-[#16211b] border border-[#233229] hover:bg-[#1d2b23] text-emerald-400 font-bold rounded-xl text-xs flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-4 h-4"></i> Criar Estoque na Unidade (Admin)
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="estoquesList">
+          <!-- Renderizado dinamicamente -->
+        </div>
       </div>
     </div>
 
@@ -1346,6 +1603,156 @@
           <button type="button" onclick="closeInviteModal()" class="px-4 py-2 bg-[#19221d] text-gray-300 font-semibold rounded-xl text-xs">Cancelar</button>
           <button type="submit" id="btnSubmitInvite" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5">
             <i data-lucide="mail" class="w-4 h-4"></i> Enviar Convite
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR MOVIMENTAÇÃO DE GADO -->
+  <div id="modalMovimentacaoGado" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
+    <div class="bg-[#0e1411] border border-[#1f2b23] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      <!-- Cabeçalho -->
+      <div class="p-4 border-b border-[#1a251e] flex items-center justify-between bg-[#121a15]">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-400"></i>
+          Registrar Movimentação de Gado
+        </h3>
+        <button onclick="closeModalMovimentacaoGado()" class="text-gray-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Formulário -->
+      <form id="formMovimentacaoGado" onsubmit="salvarMovimentacaoGado(event)" class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+        <!-- Tipo de Movimentação -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1.5">Tipo de Movimentação *</label>
+          <select id="movGadoTipo" onchange="onTipoMovGadoChange()" class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium cursor-pointer" required>
+            <optgroup label="Entradas de Animais">
+              <option value="ENTRADA_COMPRA">📥 Entrada por Compra</option>
+              <option value="ENTRADA_TRANSFERENCIA">📥 Entrada por Transferência (Exige Origem)</option>
+            </optgroup>
+            <optgroup label="Saídas de Animais">
+              <option value="SAIDA_VENDA">📤 Saída Venda (Abate / Frigorífico)</option>
+              <option value="SAIDA_CANTINA">📤 Saída Abate para Cantina</option>
+              <option value="SAIDA_TRANSFERENCIA">📤 Saída por Transferência (Exige Destino)</option>
+              <option value="SAIDA_MORTE">☠️ Saída por Morte</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Sexo / Categoria OBRIGATÓRIO (M, F) -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1.5">Sexo / Categoria do Animal *</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label id="labelSexoM" class="cursor-pointer border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl p-3 flex items-center justify-between transition">
+              <div class="flex items-center gap-2">
+                <input type="radio" name="movGadoSexo" value="M" checked onchange="atualizarEstiloSexoGado()" class="text-blue-500 focus:ring-0">
+                <span class="text-xs font-bold text-blue-400">♂ Macho (M)</span>
+              </div>
+              <span class="text-[10px] text-blue-400/70">Boi / Garrote</span>
+            </label>
+
+            <label id="labelSexoF" class="cursor-pointer border border-[#1f2b24] bg-[#121915] hover:bg-[#18231c] rounded-xl p-3 flex items-center justify-between transition">
+              <div class="flex items-center gap-2">
+                <input type="radio" name="movGadoSexo" value="F" onchange="atualizarEstiloSexoGado()" class="text-pink-500 focus:ring-0">
+                <span class="text-xs font-bold text-pink-400">♀ Fêmea (F)</span>
+              </div>
+              <span class="text-[10px] text-pink-400/70">Novilha / Vaca</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Quantidade e Data -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Quantidade (Cabeças) *</label>
+            <input type="number" id="movGadoQtd" min="1" step="1" placeholder="Ex: 120" class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold" required>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Data da Movimentação *</label>
+            <input type="date" id="movGadoData" class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500" required>
+          </div>
+        </div>
+
+        <!-- CAMPO CONDICIONAL: Unidade de Origem (Aparece se for Entrada Transferência) -->
+        <div id="blocoUnidadeOrigem" class="hidden bg-[#0c141e] border border-blue-500/40 p-3 rounded-xl space-y-1">
+          <label class="block text-xs font-bold text-blue-400 flex items-center gap-1.5">
+            <i data-lucide="arrow-down-left" class="w-3.5 h-3.5"></i>
+            Unidade de Origem (Obrigatório para Transferência) *
+          </label>
+          <input type="text" id="movGadoUnidadeOrigem" list="listaUnidadesOrigem" placeholder="Ex: Fazenda Sulinense, Fazenda Tunica, Santo André II..." class="w-full bg-[#121915] border border-[#1f2b24] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+          <datalist id="listaUnidadesOrigem">
+            <option value="Fazenda Sulinense">
+            <option value="Fazenda Tunica">
+            <option value="Fazenda Santo André II">
+            <option value="Confinamento Carigi">
+          </datalist>
+        </div>
+
+        <!-- CAMPO CONDICIONAL: Unidade de Destino (Aparece se for Saída Transferência) -->
+        <div id="blocoUnidadeDestino" class="hidden bg-[#160f1e] border border-purple-500/40 p-3 rounded-xl space-y-1">
+          <label class="block text-xs font-bold text-purple-400 flex items-center gap-1.5">
+            <i data-lucide="truck" class="w-3.5 h-3.5"></i>
+            Unidade de Destino (Obrigatório para Transferência) *
+          </label>
+          <input type="text" id="movGadoUnidadeDestino" list="listaUnidadesDestino" placeholder="Ex: Frigorífico, Fazenda Tunica, Fazenda Sulinense..." class="w-full bg-[#121915] border border-[#1f2b24] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500">
+          <datalist id="listaUnidadesDestino">
+            <option value="Fazenda Sulinense">
+            <option value="Fazenda Tunica">
+            <option value="Fazenda Santo André II">
+            <option value="Frigorífico Marfrig">
+            <option value="Frigorífico JBS">
+            <option value="Frigosul - Várzea Grande">
+            <option value="Frigorífico Minerva">
+            <option value="Boa Carne - Colíder">
+          </datalist>
+        </div>
+
+        <!-- CAMPO CONDICIONAL: Motivo da Morte (Aparece se for Saída Morte) -->
+        <div id="blocoMotivoMorte" class="hidden bg-[#1e1010] border border-red-500/40 p-3 rounded-xl space-y-1">
+          <label class="block text-xs font-bold text-red-400 flex items-center gap-1.5">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+            Causa da Morte / Motivo *
+          </label>
+          <input type="text" id="movGadoMotivoMorte" list="listaCausasMorte" placeholder="Ex: Fraqueza/Debilidade, Pneumonia, Acidente, Não identificada..." class="w-full bg-[#121915] border border-[#1f2b24] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500">
+          <datalist id="listaCausasMorte">
+            <option value="Fraqueza / Debilidade">
+            <option value="Pneumonia">
+            <option value="Morte Súbita">
+            <option value="Timpanismo">
+            <option value="Traumatismo (cocho/curral)">
+            <option value="Problemas de Casco">
+            <option value="Não identificada">
+          </datalist>
+        </div>
+
+        <!-- Peso Médio e Curral/Baia (Opcionais) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Peso Médio (kg)</label>
+            <input type="number" id="movGadoPeso" step="0.1" placeholder="Ex: 430.5" class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-300 mb-1">Curral / Baia / Piquete</label>
+            <input type="text" id="movGadoBaia" placeholder="Ex: Baia 01, Rot 1..." class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <!-- Observações -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">Observações / Detalhes</label>
+          <input type="text" id="movGadoObs" placeholder="Ex: Lote 79, GTA nº..., Frigorífico JBS..." class="w-full bg-[#121915] border border-[#1f2b24] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <!-- Rodapé do Modal -->
+        <div class="pt-3 border-t border-[#1a251e] flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModalMovimentacaoGado()" class="px-4 py-2 bg-[#17211b] hover:bg-[#1f2c25] text-gray-300 font-semibold rounded-xl text-xs transition">
+            Cancelar
+          </button>
+          <button type="submit" id="btnSalvarMovGado" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+            <i data-lucide="check" class="w-4 h-4"></i> Salvar Movimentação
           </button>
         </div>
       </form>

@@ -498,33 +498,53 @@ function embarqueToRow(e) {
 
 function rowToBaia(r) {
   if (!r) return null;
+  let meta = {};
+  if (r.obs && typeof r.obs === 'string' && r.obs.startsWith('{')) {
+    try { meta = JSON.parse(r.obs); } catch (e) {}
+  }
   return {
     id: r.id,
+    linha: meta.linha || r.linha || '',
     lote: r.lote,
     baia: r.baia,
     raca: r.raca,
     categoria: r.categoria,
+    tipoEntrada: meta.tipoEntrada || r.tipo_entrada || 'Compra',
     qtdAnimais: Number(r.qtd_animais !== undefined ? r.qtd_animais : r.qtdAnimais) || 0,
+    mortes: Number(meta.mortes !== undefined ? meta.mortes : (r.mortes || 0)) || 0,
     dataEntrada: r.data_entrada || r.dataEntrada,
     pesoEntrada: r.peso_entrada || r.pesoEntrada,
     dieta: r.dieta,
     dtAdap: r.dt_adap || r.dtAdap,
-    diasAdap: r.dias_adap || r.diasAdap,
+    diasAdap: r.dias_adap || r.diasAdap || 0,
     dtTerm: r.dt_term || r.dtTerm,
-    diasTerm: r.dias_term || r.diasTerm,
-    diasConfin: r.dias_confin || r.diasConfin,
-    consumoMO: r.consumo_mo || r.consumoMO,
-    gpd: r.gpd,
+    diasTerm: r.dias_term || r.diasTerm || 0,
+    diasConfin: r.dias_confin || r.diasConfin || 0,
+    diasTrato: Number(meta.diasTrato !== undefined ? meta.diasTrato : (r.dias_trato || 0)) || 0,
+    consumoMO: r.consumo_mo || r.consumoMO || 0,
+    consumoMS: Number(meta.consumoMS !== undefined ? meta.consumoMS : (r.consumo_ms || 0)) || 0,
+    consumoPV: Number(meta.consumoPV !== undefined ? meta.consumoPV : (r.consumo_pv || 0)) || 0,
+    gpd: r.gpd || 1.4,
     pesoAbatePrev: r.peso_abate_prev || r.pesoAbatePrev,
     pesoEstimadoHoje: r.peso_estimado_hoje || r.pesoEstimadoHoje,
     dataEstimadaEmbarque: r.data_estimada_embarque || r.dataEstimadaEmbarque,
-    obs: r.obs
+    obs: meta.obs !== undefined ? meta.obs : r.obs
   };
 }
 
 function baiaToRow(b) {
+  const meta = {
+    linha: b.linha || '',
+    tipoEntrada: b.tipoEntrada || 'Compra',
+    mortes: Number(b.mortes) || 0,
+    diasTrato: Number(b.diasTrato) || 0,
+    consumoMS: Number(b.consumoMS) || 0,
+    consumoPV: Number(b.consumoPV) || 0,
+    obs: typeof b.obs === 'string' && !b.obs.startsWith('{') ? b.obs : ''
+  };
+
   return {
-    id: b.id || (b.baia + '_' + b.lote),
+    id: b.id || (b.baia + '_' + (b.lote || 'vazia')),
     lote: b.lote,
     baia: b.baia,
     raca: b.raca || 'NE',
@@ -543,7 +563,7 @@ function baiaToRow(b) {
     peso_abate_prev: b.pesoAbatePrev ? Number(b.pesoAbatePrev) : null,
     peso_estimado_hoje: b.pesoEstimadoHoje ? Number(b.pesoEstimadoHoje) : null,
     data_estimada_embarque: b.dataEstimadaEmbarque || null,
-    obs: b.obs || '',
+    obs: JSON.stringify(meta),
     updated_at: new Date().toISOString()
   };
 }
@@ -1798,6 +1818,271 @@ app.get('/api/dashboard/movimentacoes', async (req, res) => {
     porTipo,
     evolucaoMensal: Object.values(porMes).sort((a, b) => a.mes.localeCompare(b.mes))
   });
+});
+
+// -------------------------------------------------------------
+// 7.1. MÓDULO DE MOVIMENTAÇÃO DE GADO (ESTOQUE DE ANIMAIS VIVOS)
+// -------------------------------------------------------------
+
+// Saldo consolidado de animais vivos, machos e fêmeas
+app.get('/api/gado/saldo', async (req, res) => {
+  try {
+    let baias = [];
+    if (isSupabaseConfigured && supabaseAdmin) {
+      const { data } = await supabaseAdmin.from('baias').select('categoria, qtd_animais');
+      if (data && data.length > 0) baias = data;
+    }
+    if (baias.length === 0) {
+      const db = getDb();
+      baias = db.baias || [];
+    }
+
+    let totalMachos = 0;
+    let totalFemeas = 0;
+
+    baias.forEach(b => {
+      const cat = String(b.categoria || '').toLowerCase();
+      const qtd = Number(b.qtd_animais !== undefined ? b.qtd_animais : b.qtdAnimais) || 0;
+      if (cat.includes('femea') || cat.includes('fêmea') || cat.includes('novilha') || cat.includes('vaca')) {
+        totalFemeas += qtd;
+      } else {
+        totalMachos += qtd;
+      }
+    });
+
+    // Ajustar com as movimentações manuais inseridas
+    let movsGado = [];
+    if (isSupabaseConfigured && supabaseAdmin) {
+      const { data } = await supabaseAdmin.from('movimentacoes').select('tipo, categoria, quantidade, id').like('id', 'mov_gado_%');
+      if (data) movsGado = data;
+    }
+    if (movsGado.length === 0) {
+      const db = getDb();
+      movsGado = (db.movimentacoes || []).filter(m => String(m.id || '').startsWith('mov_gado_'));
+    }
+
+    movsGado.forEach(m => {
+      const t = String(m.tipo || '').toUpperCase();
+      const c = String(m.categoria || '').toUpperCase();
+      const qtd = Number(m.quantidade) || 0;
+      const isMacho = c === 'M' || c === 'MACHO' || c.includes('BOI');
+
+      if (t.includes('ENTRADA')) {
+        if (isMacho) totalMachos += qtd;
+        else totalFemeas += qtd;
+      } else if (t.includes('SAIDA') || t.includes('SAÍDA') || t.includes('VENDA') || t.includes('ABATE') || t.includes('MORTE')) {
+        if (isMacho) totalMachos = Math.max(0, totalMachos - qtd);
+        else totalFemeas = Math.max(0, totalFemeas - qtd);
+      }
+    });
+
+    const totalVivos = totalMachos + totalFemeas;
+    const pctMachos = totalVivos > 0 ? Number(((totalMachos / totalVivos) * 100).toFixed(1)) : 0;
+    const pctFemeas = totalVivos > 0 ? Number(((totalFemeas / totalVivos) * 100).toFixed(1)) : 0;
+
+    res.json({
+      totalVivos,
+      totalMachos,
+      totalFemeas,
+      pctMachos,
+      pctFemeas,
+      totalCurrais: baias.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao calcular saldo de gado: ' + err.message });
+  }
+});
+
+// Listagem e Dash interna de movimentações de gado
+app.get('/api/gado/movimentacoes', async (req, res) => {
+  try {
+    const { dataInicio, dataFim, tipo, sexo } = req.query;
+
+    let movs = [];
+    if (isSupabaseConfigured && supabaseAdmin) {
+      let q = supabaseAdmin.from('movimentacoes').select('*').order('data', { ascending: false });
+      if (dataInicio) q = q.gte('data', dataInicio);
+      if (dataFim) q = q.lte('data', dataFim);
+      const { data } = await q;
+      if (data && data.length > 0) movs = data;
+    }
+    if (movs.length === 0) {
+      const db = getDb();
+      movs = db.movimentacoes || [];
+      if (dataInicio) movs = movs.filter(m => m.data >= dataInicio);
+      if (dataFim) movs = movs.filter(m => m.data <= dataFim);
+    }
+
+    const norm = str => String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+    if (tipo && tipo !== 'TODOS') {
+      const tNorm = norm(tipo);
+      movs = movs.filter(m => norm(m.tipo).includes(tNorm));
+    }
+
+    if (sexo && sexo !== 'TODOS') {
+      const sNorm = norm(sexo);
+      movs = movs.filter(m => {
+        const cat = norm(m.categoria);
+        if (sNorm === 'm') return cat === 'm' || cat.includes('macho') || cat.includes('boi');
+        if (sNorm === 'f') return cat === 'f' || cat.includes('femea') || cat.includes('novilha') || cat.includes('vaca');
+        return true;
+      });
+    }
+
+    movs.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+
+    let totalEntradas = 0, totalEntradasM = 0, totalEntradasF = 0;
+    let totalSaidas = 0, totalSaidasM = 0, totalSaidasF = 0;
+    let totalMortes = 0;
+    const porTipo = {};
+    const porSexo = { M: 0, F: 0 };
+
+    movs.forEach(m => {
+      const t = String(m.tipo || '').toUpperCase();
+      const tNorm = norm(t);
+      const cat = norm(m.categoria);
+      const isM = cat === 'm' || cat.includes('macho') || cat.includes('boi');
+      const qtd = Number(m.quantidade) || 0;
+
+      porTipo[m.tipo] = (porTipo[m.tipo] || 0) + qtd;
+      if (isM) porSexo.M += qtd; else porSexo.F += qtd;
+
+      if (tNorm.includes('entrada')) {
+        totalEntradas += qtd;
+        if (isM) totalEntradasM += qtd; else totalEntradasF += qtd;
+      } else if (tNorm.includes('saida') || tNorm.includes('venda') || tNorm.includes('abate')) {
+        totalSaidas += qtd;
+        if (isM) totalSaidasM += qtd; else totalSaidasF += qtd;
+      } else if (tNorm.includes('morte')) {
+        totalMortes += qtd;
+        totalSaidas += qtd;
+        if (isM) totalSaidasM += qtd; else totalSaidasF += qtd;
+      }
+    });
+
+    res.json({
+      movimentacoes: movs,
+      totalRegistros: movs.length,
+      kpis: {
+        totalEntradas,
+        totalEntradasM,
+        totalEntradasF,
+        totalSaidas,
+        totalSaidasM,
+        totalSaidasF,
+        totalMortes,
+        saldoPeriodo: totalEntradas - totalSaidas
+      },
+      porTipo,
+      porSexo
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao listar movimentações de gado: ' + err.message });
+  }
+});
+
+// Cadastrar nova movimentação de gado
+app.post('/api/gado/movimentacoes', async (req, res) => {
+  try {
+    const {
+      tipo,
+      sexo,
+      quantidade,
+      data,
+      unidadeOrigem,
+      unidadeDestino,
+      motivoMorte,
+      peso,
+      precoArroba,
+      valorTotal,
+      baia,
+      lote,
+      obs
+    } = req.body;
+
+    if (!tipo) return res.status(400).json({ error: 'Informe o tipo de movimentação.' });
+    if (!sexo || (sexo !== 'M' && sexo !== 'F')) return res.status(400).json({ error: 'Informe o sexo do animal (M ou F).' });
+    const qtdNum = parseInt(quantidade, 10);
+    if (!qtdNum || qtdNum <= 0) return res.status(400).json({ error: 'Informe uma quantidade válida maior que zero.' });
+
+    // Validações obrigatórias
+    if (tipo === 'ENTRADA_TRANSFERENCIA' && !unidadeOrigem) {
+      return res.status(400).json({ error: 'Em caso de entrada por transferência, a Unidade de Origem é obrigatória.' });
+    }
+    if (tipo === 'SAIDA_TRANSFERENCIA' && !unidadeDestino) {
+      return res.status(400).json({ error: 'Em caso de saída por transferência, a Unidade de Destino é obrigatória.' });
+    }
+
+    const dt = data || new Date().toISOString().split('T')[0];
+    const origDest = tipo === 'ENTRADA_TRANSFERENCIA'
+      ? unidadeOrigem
+      : (tipo === 'SAIDA_TRANSFERENCIA' ? unidadeDestino : (unidadeDestino || unidadeOrigem || null));
+
+    let observacaoFinal = obs || '';
+    if (motivoMorte) {
+      observacaoFinal = `Causa: ${motivoMorte}${observacaoFinal ? ' | ' + observacaoFinal : ''}`;
+    }
+
+    const newMov = {
+      id: `mov_gado_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      lote: lote || null,
+      baia: baia || null,
+      data: dt,
+      pedido: null,
+      tipo: tipo,
+      quantidade: qtdNum,
+      categoria: sexo === 'M' ? 'Macho' : 'Fêmea',
+      peso_origem: null,
+      peso: peso ? Number(peso) : null,
+      preco_arroba: precoArroba ? Number(precoArroba) : null,
+      valor_cabeca: peso && precoArroba ? Number(((peso / 30) * precoArroba).toFixed(2)) : null,
+      valor_total: valorTotal ? Number(valorTotal) : null,
+      origem_destino: origDest,
+      obs: observacaoFinal || null,
+      created_at: new Date().toISOString()
+    };
+
+    // Salvar no Supabase
+    if (isSupabaseConfigured && supabaseAdmin) {
+      try {
+        const { error } = await supabaseAdmin.from('movimentacoes').insert([newMov]);
+        if (error) console.error('Erro ao salvar movimentação no Supabase:', error);
+      } catch (e) {
+        console.warn('Falha Supabase movimentacoes:', e.message);
+      }
+    }
+
+    // Salvar no fallback local db.json
+    const db = getDb();
+    if (!db.movimentacoes) db.movimentacoes = [];
+    db.movimentacoes.unshift(newMov);
+    db.lastUpdate = new Date().toISOString();
+    saveDb(db);
+
+    res.json({ success: true, movimentacao: newMov });
+  } catch (err) {
+    res.status(500).json({ error: 'Falha ao registrar movimentação de gado: ' + err.message });
+  }
+});
+
+// Excluir movimentação de gado
+app.delete('/api/gado/movimentacoes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isSupabaseConfigured && supabaseAdmin) {
+      await supabaseAdmin.from('movimentacoes').delete().eq('id', id);
+    }
+    const db = getDb();
+    if (db.movimentacoes) {
+      db.movimentacoes = db.movimentacoes.filter(m => m.id !== id);
+      db.lastUpdate = new Date().toISOString();
+      saveDb(db);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Falha ao excluir movimentação: ' + err.message });
+  }
 });
 
 // -------------------------------------------------------------
